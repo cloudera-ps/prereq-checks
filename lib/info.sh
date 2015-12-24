@@ -1,9 +1,12 @@
+SYSINFO_TITLE_WIDTH=14
+
 function print_label() {
   printf "%-${SYSINFO_TITLE_WIDTH}s %s\n" "$1:" "$2"
 }
 
 function print_time() {
   local timezone=`ls -lh /etc/localtime | cut -d' ' -f11 | cut -d'/' -f5-`
+  timezone="${timezone:-UTC}"
   print_label "Timezone" "$timezone"
   print_label "DateTime" "`date`"
 }
@@ -12,34 +15,39 @@ function print_fqdn() {
   print_label "FQDN" `hostname -f`
 }
 
-function print_distro() {
+function print_os() {
   local distro="Unknown"
   if [ -f /etc/redhat-release ]; then
     distro=`sed -e 's/release //' -e 's/ (Final)//' /etc/redhat-release`
   fi
   print_label "Distro" "$distro"
-}
-
-function print_kernel() {
   print_label "Kernel" `uname -r`
 }
 
-function print_cpu() {
+function print_cpu_and_ram() {
   local cpu=`grep -m1 "^model name" /proc/cpuinfo | cut -d' ' -f3- | sed -e 's/(R)//' -e 's/Core(TM) //' -e 's/CPU //'`
   print_label "CPUs" "`nproc`x $cpu"
-}
-
-function print_ram() {
   local ram_kb=`grep "MemTotal:" /proc/meminfo | cut -d' ' -f8`
   print_label "RAM" "`echo $ram_kb/1000/1000 | bc` GB"
 }
 
 function print_disks() {
   echo "Disks:"
-  for d in /dev/sd?; do
+  for d in `ls /dev/{sd?,xvd?} 2>/dev/null`; do
     pad; echo -n "$d  "
-    fdisk -l $d | grep "^Disk /dev/sd" | cut -d' ' -f3-4 | cut -d',' -f1
+    sudo fdisk -l $d 2>/dev/null | grep "^Disk /dev/" | cut -d' ' -f3-4 | cut -d',' -f1
   done
+
+  local mnts=`mount | grep /data || true`
+  if [ "$mnts" ]; then
+    echo "Data mounts:"
+    local IFS=$'\n'
+    for m in `echo "$mnts"`; do
+      pad; echo "$m"
+    done
+  else
+    print_label "Data mounts" "None found"
+  fi
 }
 
 function print_free_space() {
@@ -71,6 +79,18 @@ function print_cloudera_rpms() {
 }
 
 function print_network() {
-  local hosts=`grep "^hosts:" /etc/nsswitch.conf | sed 's/^hosts: *//'`
-  print_label "nsswitch" "$hosts"
+  print_label "nsswitch" "`grep "^hosts:" /etc/nsswitch.conf | sed 's/^hosts: *//'`"
+  print_label "DNS server" `grep "^nameserver" /etc/resolv.conf | cut -d' ' -f2`
+}
+
+function system_info() {
+  print_header "System information"
+  print_fqdn
+  print_os
+  print_cpu_and_ram
+  print_disks
+  print_free_space
+  print_cloudera_rpms
+  print_time
+  print_network
 }
