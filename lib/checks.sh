@@ -33,6 +33,7 @@ function check_java() {
 }
 
 function check_os() {
+  # http://www.cloudera.com/content/www/en-us/documentation/enterprise/latest/topics/cdh_admin_performance.html#xd_583c10bfdbd326ba-7dae4aa6-147c30d0933--7fd5__section_xpq_sdf_jq
   local swappiness=`cat /proc/sys/vm/swappiness`
   local msg="System: /proc/sys/vm/swappiness should be 1"
   if [ "$swappiness" -eq 1 ]; then
@@ -41,16 +42,21 @@ function check_os() {
     state "$msg. Actual: $swappiness" 1
   fi
 
-  local file=/sys/kernel/mm/redhat_transparent_hugepage/defrag
+  # Older RHEL/CentOS versions use [1], while newer versions (e.g. 7.1) and
+  # Ubuntu/Debian use [2]:
+  #   1: /sys/kernel/mm/redhat_transparent_hugepage/defrag
+  #   2: /sys/kernel/mm/transparent_hugepage/defrag.
+  # http://www.cloudera.com/content/www/en-us/documentation/enterprise/latest/topics/cdh_admin_performance.html#xd_583c10bfdbd326ba-7dae4aa6-147c30d0933--7fd5__section_hw3_sdf_jq
+  local file=`find /sys/kernel/mm/ -type d -name '*transparent_hugepage'`/defrag
   if [ -f $file ]; then
-    local msg="System: /sys/kernel/mm/redhat_transparent_hugepage/defrag should be disabled"
-    if [ `grep -q "\[never\]" $file; echo $?` -eq 0 ]; then
+    local msg="System: $file should be disabled"
+    if fgrep -q "[never]" $file; then
       state "$msg" 0
     else
       state "$msg. Actual: `cat $file | awk '{print $1}' | sed -e 's/\[//' -e 's/\]//'`" 1
     fi
   else
-    state "System: $file not found. Check skipped" 2
+    state "System: /sys/kernel/mm/*transparent_hugepage not found. Check skipped" 2
   fi
 
   # http://www.cloudera.com/content/www/en-us/documentation/enterprise/latest/topics/install_cdh_disable_selinux.html
