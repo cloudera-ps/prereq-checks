@@ -27,8 +27,7 @@ function print_os() {
 function print_cpu_and_ram() {
   local cpu=`grep -m1 "^model name" /proc/cpuinfo | cut -d' ' -f3- | sed -e 's/(R)//' -e 's/Core(TM) //' -e 's/CPU //'`
   print_label "CPUs" "`nproc`x $cpu"
-  local ram_kb=`grep "MemTotal:" /proc/meminfo | cut -d' ' -f8`
-  print_label "RAM" "`echo $ram_kb/1000/1000 | bc` GB"
+  print_label "RAM" "`awk '/MemTotal:/ {printf "%d GB", $2/1000/1000}' /proc/meminfo`"
 }
 
 function print_disks() {
