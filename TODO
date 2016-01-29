@@ -1,0 +1,24 @@
+- setup ssh keys
+- ntpd check
+- Isilon check
+  - hdfs -ls + -cat
+- Check FQDN
+- Check DNS resolution (dig, nslookup, python code)
+- Check for unneeded services
+  - bluetooth
+  - cups
+  - iptables
+  - ip6tables
+  - postfix
+- Check that IPv6 is disabled
+- Review prereqs doc
+  
+- Check multiple hosts
+- Support CentOS/RHEL 7.1
+- Fix issues
+- Setup offline repos
+
+check that /tmp does not have noexec turned on
+check that data drives are mounted with noatime
+check that data drives are ext3 or ext4 (maybe even xfs)
+check if IPv6 is turned on
