@@ -101,6 +101,8 @@ function check_network() {
     state "Network: No Internet connection" 2
   fi
 
+  check_hostname
+
   local entries=`cat /etc/hosts | egrep -v "^#|^ *$" | wc -l`
   local msg="Network: /etc/hosts entries should be <= 2 (use DNS). Actual: $entries"
   if [ "$entries" -le 2 ]; then
@@ -180,11 +182,9 @@ function check_hostname() {
   local shortn=`hostname -s`
 
  if [[ `echo $fqdn | awk -F "." '{print $1}'` -eq $shortn  &&  `echo $fqdn | awk -F "." '{print NF}'` -gt 2 ]]; then
-    state "Hostname: Format looks okay" 0
-    return
+    state "Network: FQDN looks okay" 0
   elif [ `echo $fqdn | awk -F '.' "{print NF}"` -lt 3 ]; then
-    state "hostname: FQDN or FQDN on /etc/hosts is misconfigured. \"hostname -f\" should return the FQDN" 1
-    return
+    state "Network: FQDN or /etc/hosts is misconfigured. \"hostname -f\" should return the FQDN" 1
   fi
 }
 
@@ -201,5 +201,4 @@ function checks() {
   check_java
   check_database
   check_jdbc_connector
-  check_hostname
 }
