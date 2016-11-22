@@ -2,7 +2,6 @@
 - ntpd check
 - Isilon check
   - hdfs -ls + -cat
-- Check FQDN
 - Check DNS resolution (dig, nslookup, python code)
 - Check for unneeded services
   - bluetooth
@@ -17,6 +16,9 @@
 - Support CentOS/RHEL 7.1
 - Fix issues
 - Setup offline repos
+- check MySQL auto-starts on boot
+- check MySQL config
+- check fs (type and mount options) + reserved space
 
 check that /tmp does not have noexec turned on
 check that data drives are mounted with noatime

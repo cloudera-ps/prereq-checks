@@ -188,10 +188,6 @@ function check_hostname() {
   fi
 }
 
-# TODO check MySQL auto-starts on boot
-# TODO check MySQL config
-# TODO check DNS
-# TODO check fs (type and mount options) + reserved space
 function checks() {
   print_header "Prerequisite checks"
   check_os
