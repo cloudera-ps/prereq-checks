@@ -29,7 +29,7 @@
 
 set -e
 
-VER=1.0.1
+VER=1.1.0
 
 # Include libs (START) --------------------------------------------------------
 # Do not remove the place marker "Include libs (START|STOP)" comments. They are
