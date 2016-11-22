@@ -175,9 +175,22 @@ function check_ulimits() {
   state "System: ulimits for users hdfs, mapred, & hbase" 0
 }
 
+function check_hostname() {
+  local fqdn=`hostname -f`
+  local shortn=`hostname -s`
+
+ if [[ `echo $fqdn | awk -F "." '{print $1}'` -eq $shortn  &&  `echo $fqdn | awk -F "." '{print NF}'` -gt 2 ]]; then
+    state "Hostname: Format looks okay" 0
+    return
+  elif [ `echo $fqdn | awk -F '.' "{print NF}"` -lt 3 ]; then
+    state "hostname: FQDN or FQDN on /etc/hosts is misconfigured. \"hostname -f\" should return the FQDN" 1
+    return
+  fi
+}
+
 # TODO check MySQL auto-starts on boot
 # TODO check MySQL config
-# TODO check hostname, DNS
+# TODO check DNS
 # TODO check fs (type and mount options) + reserved space
 function checks() {
   print_header "Prerequisite checks"
@@ -188,4 +201,5 @@ function checks() {
   check_java
   check_database
   check_jdbc_connector
+  check_hostname
 }
