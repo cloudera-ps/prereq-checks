@@ -127,7 +127,7 @@ function _check_service_is_running() {
     *) state "$prefix: $service is not installed" 1;;
   esac
 
-  local chkconfig=`chkconfig | awk "/^$service / {print \\$5}"`
+  local chkconfig=`chkconfig 2>/dev/null | awk "/^$service / {print \\$5}"`
   [ "$chkconfig" ] || chkconfig=""
   if [ "$chkconfig" = "3:on" ]; then
     state "$prefix: $service auto-starts on boot" 0
@@ -149,7 +149,7 @@ function _check_service_is_not_running() {
     *) state "$prefix: $service is not installed" 0;;
   esac
 
-  local chkconfig=`chkconfig | awk "/^$service / {print \\$5}"`
+  local chkconfig=`chkconfig 2>/dev/null | awk "/^$service / {print \\$5}"`
   [ "$chkconfig" ] || chkconfig=""
   if [ "$chkconfig" = "3:on" ]; then
     if [ "$service" = "sssd" ]; then
