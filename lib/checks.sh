@@ -118,28 +118,46 @@ function check_network() {
   _check_service_is_not_running 'Network' 'sssd'
 }
 
+function service_cmd() {
+  if is_centos_rhel_7; then
+    echo "systemctl status $service"
+  else
+    echo "service $service status"
+  fi
+}
+
 function _check_service_is_running() {
   local prefix=$1
   local service=$2
-  case `sudo service $service status &>/dev/null; echo $?` in
+  sudo `service_cmd` &>/dev/null
+  case $? in
     0) state "$prefix: $service is running"       0;;
     3) state "$prefix: $service is not running"   1;;
     *) state "$prefix: $service is not installed" 1;;
   esac
 
-  local chkconfig=`chkconfig 2>/dev/null | awk "/^$service / {print \\$5}"`
-  [ "$chkconfig" ] || chkconfig=""
-  if [ "$chkconfig" = "3:on" ]; then
-    state "$prefix: $service auto-starts on boot" 0
+  if is_centos_rhel_7; then
+    if systemctl is-enabled $service &>/dev/null; then
+      state "$prefix: $service auto-starts on boot" 0
+    else
+      state "$prefix: $service does not auto-start on boot" 1
+    fi
   else
-    state "$prefix: $service does not auto-start on boot" 1
+    local chkconfig=`chkconfig 2>/dev/null | awk "/^$service / {print \\$5}"`
+    [ "$chkconfig" ] || chkconfig=""
+    if [ "$chkconfig" = "3:on" ]; then
+      state "$prefix: $service auto-starts on boot" 0
+    else
+      state "$prefix: $service does not auto-start on boot" 1
+    fi
   fi
 }
 
 function _check_service_is_not_running() {
   local prefix=$1
   local service=$2
-  case `sudo service $service status &>/dev/null; echo $?` in
+  sudo `service_cmd` &>/dev/null
+  case $? in
     0) state "$prefix: $service is running" 2
        if [ "$service" = "iptables" ]; then
          echo "       iptable routes:"
@@ -149,16 +167,24 @@ function _check_service_is_not_running() {
     *) state "$prefix: $service is not installed" 0;;
   esac
 
-  local chkconfig=`chkconfig 2>/dev/null | awk "/^$service / {print \\$5}"`
-  [ "$chkconfig" ] || chkconfig=""
-  if [ "$chkconfig" = "3:on" ]; then
-    if [ "$service" = "sssd" ]; then
-      state "$prefix: $service auto-starts on boot" 2
-    else
+  if is_centos_rhel_7; then
+    if systemctl is-enabled $service &>/dev/null; then
       state "$prefix: $service auto-starts on boot" 1
+    else
+      state "$prefix: $service does not auto-start on boot" 0
     fi
   else
-    state "$prefix: $service does not auto-start on boot" 0
+    local chkconfig=`chkconfig 2>/dev/null | awk "/^$service / {print \\$5}"`
+    [ "$chkconfig" ] || chkconfig=""
+    if [ "$chkconfig" = "3:on" ]; then
+      if [ "$service" = "sssd" ]; then
+	state "$prefix: $service auto-starts on boot" 2
+      else
+	state "$prefix: $service auto-starts on boot" 1
+      fi
+    else
+      state "$prefix: $service does not auto-start on boot" 0
+    fi
   fi
 }
 
@@ -188,11 +214,26 @@ function check_hostname() {
   fi
 }
 
+function is_centos_rhel_7() {
+  if [ -f /etc/redhat-release ] && grep -q " 7." /etc/redhat-release; then
+    return 0;
+  else
+    return 1;
+  fi
+}
+
 function checks() {
   print_header "Prerequisite checks"
   check_os
   check_ulimits
-  _check_service_is_running 'System' 'ntpd'
+
+  if is_centos_rhel_7; then
+    _check_service_is_not_running 'System' 'ntpd'
+    _check_service_is_running     'System' 'chronyd'
+  else
+    _check_service_is_running 'System' 'ntpd'
+  fi
+
   check_network
   check_java
   check_database
