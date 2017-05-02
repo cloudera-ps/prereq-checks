@@ -112,8 +112,11 @@ function check_network() {
   fi
 
   # http://www.cloudera.com/content/www/en-us/documentation/enterprise/latest/topics/install_cdh_disable_iptables.html
-  _check_service_is_not_running 'Network' 'iptables'
-
+  if is_centos_rhel_7; then 
+    _check_service_is_not_running 'Network' 'firewalld'
+  else
+    _check_service_is_not_running 'Network' 'iptables'
+  fi 
   _check_service_is_running     'Network' 'nscd'
   _check_service_is_not_running 'Network' 'sssd'
 }
