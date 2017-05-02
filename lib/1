@@ -234,9 +234,9 @@ function is_centos_rhel_7() {
 
 function is_ntp_in_sync() {
   if [ `ntpstat | grep "synchronised to NTP server" | wc -l` -eq 1 ]; then
-    state "System: Clock is synchronized against the NTPD server" 0
+    echo "NTP is synchronized"
   else
-    state "System: NTP is not synchronized. Check ntpstat to troubleshoot" 1
+    echo "NTP is not synchronizing"
   fi 
 }
 
@@ -246,17 +246,20 @@ function checks() {
   check_ulimits
 
   if is_centos_rhel_7; then
+    # Can run either chronyd or ntpd on RHEL7
     ntpd_used="$(_validate_service_state 'System' 'ntpd')"
     if [ $ntpd_used -eq 0 ]; then
       _check_service_is_running 'System' 'ntpd'
       is_ntp_in_sync
     else
-    # Add check to see if chrony is actually synchronizing the clock. Use the command "chronyc tracking"
       _check_service_is_running     'System' 'chronyd'
     fi
+
+    _check_service_is_running     'System' 'chronyd'
   else
     _check_service_is_running 'System' 'ntpd'
-    is_ntp_in_sync
+    
+
   fi
 
   check_network
