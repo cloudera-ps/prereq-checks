@@ -27,7 +27,7 @@
 # You are responsible for reviewing and testing any scripts you run thoroughly
 # before use in any non-testing environment.
 
-VER=1.2.0
+VER=1.2.1
 
 # Include libs (START) --------------------------------------------------------
 # Do not remove the place marker "Include libs (START|STOP)" comments. They are
