@@ -188,21 +188,6 @@ function _check_service_is_not_running() {
   fi
 }
 
-function check_ulimits() {
-  for u in hdfs mapred hbase; do
-    for t in nofile nproc; do
-      local match=`grep "^$u" /etc/security/limits.d/*.conf | grep "\s$t\s"`
-      local v=`echo "$match" | awk '{print $4}'`
-      if [ ! "$match" ] || [ "$v"  -lt 32768 ]; then
-        [ "$v" ] || v=1024
-        state "System: ulimits too low. E.g. $t for '$u' should be >= 32768. Actual: $v" 1
-        return
-      fi
-    done
-  done
-  state "System: ulimits for users hdfs, mapred, & hbase" 0
-}
-
 function check_hostname() {
   local fqdn=`hostname -f`
   local shortn=`hostname -s`
@@ -225,7 +210,6 @@ function is_centos_rhel_7() {
 function checks() {
   print_header "Prerequisite checks"
   check_os
-  check_ulimits
 
   if is_centos_rhel_7; then
     _check_service_is_not_running 'System' 'ntpd'
