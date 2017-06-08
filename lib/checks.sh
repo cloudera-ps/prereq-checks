@@ -192,7 +192,7 @@ function check_hostname() {
   local fqdn=`hostname -f`
   local shortn=`hostname -s`
 
- if [[ `echo $fqdn | awk -F "." '{print $1}'` -eq $shortn  &&  `echo $fqdn | awk -F "." '{print NF}'` -gt 2 ]]; then
+  if [[ `echo $fqdn | awk -F "." '{print $1}'` -eq $shortn  &&  `echo $fqdn | awk -F "." '{print NF}'` -gt 2 && ${#shortn} -le 15 ]]; then
     state "Network: FQDN looks okay" 0
   elif [ `echo $fqdn | awk -F '.' "{print NF}"` -lt 3 ]; then
     state "Network: FQDN or /etc/hosts is misconfigured. \"hostname -f\" should return the FQDN" 1
