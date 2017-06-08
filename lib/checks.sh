@@ -137,7 +137,7 @@ function _check_service_is_running() {
   esac
 
   if is_centos_rhel_7; then
-    if systemctl is-enabled $service &>/dev/null; then
+    if [ "`systemctl is-enabled $service`" == "enabled" ]; then
       state "$prefix: $service auto-starts on boot" 0
     else
       state "$prefix: $service does not auto-start on boot" 1
@@ -158,20 +158,20 @@ function _check_service_is_not_running() {
   local service=$2
   sudo `service_cmd` &>/dev/null
   case $? in
-    0) state "$prefix: $service is running" 2
+    0) state "$prefix: $service is running" 0
        if [ "$service" = "iptables" ]; then
          echo "       iptable routes:"
          sudo iptables -L | sed "s/^/         /"
        fi;;
-    3) state "$prefix: $service is not running"   0;;
-    *) state "$prefix: $service is not installed" 0;;
+    3) state "$prefix: $service is not running"   1;;
+    *) state "$prefix: $service is not installed" 1;;
   esac
 
   if is_centos_rhel_7; then
-    if systemctl is-enabled $service &>/dev/null; then
-      state "$prefix: $service auto-starts on boot" 1
+    if [ "`systemctl is-enabled $service`" == "enabled" ]; then
+      state "$prefix: $service auto-starts on boot" 0
     else
-      state "$prefix: $service does not auto-start on boot" 0
+      state "$prefix: $service does not auto-start on boot" 1
     fi
   else
     local chkconfig=`chkconfig 2>/dev/null | awk "/^$service / {print \\$5}"`
