@@ -45,9 +45,40 @@ if [ `uname` = 'Darwin' ]; then
   exit 1
 fi
 
-# Cache `rpm -qa` since it's slow and we call it several times
-RPM_QA=`rpm -qa | sort`
+function check_deployment() {
+  # Cache `rpm -qa` since it's slow and we call it several times
+  RPM_QA=`rpm -qa | sort`
 
-system_info
-checks
-echo
+  system_info
+  checks
+}
+
+function check_security() {
+  if [ $# -eq 0 ]; then
+    usage
+  else
+    sh ./lib/verify.sh $1
+  fi
+}
+
+function usage() {
+  echo "    Usage: ./prereq-check.sh <argument>"
+  echo "     Deployment checking example:"
+  echo "                                  ./prereq-check.sh deployment"
+  echo "     Security checking example:"
+  echo "                                  ./prereq-check.sh security <domain>"
+  echo "                                  ./prereq-check.sh security AD.CLOUDERA.COM"
+  exit 1
+}
+
+if [ $# -eq 0 ]; then
+  usage
+else
+  if [ "$1" = "deployment" ]; then
+    check_deployment
+  elif [ "$1" = "security" ]; then
+    check_security $2
+  else
+    usage
+  fi
+fi
