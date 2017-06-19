@@ -84,7 +84,7 @@ function print_network() {
 
 function print_mount() {
   echo "Mount:"
-  printf "%s\n" "`findmnt -lo source,target,fstype,options`"
+  printf "%s\n" "`findmnt -lo source,target,fstype,options | egrep -i '^/dev'`"
 }
 
 function system_info() {
