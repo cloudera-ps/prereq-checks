@@ -82,6 +82,11 @@ function print_network() {
   print_label "DNS server" `grep "^nameserver" /etc/resolv.conf | cut -d' ' -f2`
 }
 
+function print_mount() {
+  echo "Mount:"
+  printf "%s\n" "`findmnt -lo source,target,fstype,options | egrep -i '^/dev'`"
+}
+
 function system_info() {
   print_header "System information"
   print_fqdn
@@ -92,4 +97,5 @@ function system_info() {
   print_cloudera_rpms
   print_time
   print_network
+  print_mount
 }
