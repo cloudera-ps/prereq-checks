@@ -106,7 +106,23 @@ function check_network() {
   local entries=`cat /etc/hosts | egrep -v "^#|^ *$" | wc -l`
   local msg="Network: /etc/hosts entries should be <= 2 (use DNS). Actual: $entries"
   if [ "$entries" -le 2 ]; then
-    state "$msg" 0
+    local rc=0
+    while read line; do
+      entry=`echo $line | egrep -v "^#|^ *$"`
+      if [ ! "$entry" = "" ]; then
+        set -- `echo $line | awk '{ print $1, $2 }'`
+        if [ "$1" = "127.0.0.1" -o "$1" = "::1" ] && [ "$2" = "localhost" ]; then
+          :
+        else
+          rc=1
+        fi
+      fi
+    done < /etc/hosts
+    if [ "$rc" -eq 0 ]; then
+      state "$msg" 0
+    else
+      state "${msg}, but has non localhost" 2
+    fi
   else
     state "$msg" 2
   fi
