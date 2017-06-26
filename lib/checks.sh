@@ -51,7 +51,7 @@ function check_os() {
       3) state "System: tuned is not running" 0;;
       *) state "System: tuned is not installed" 0;;
     esac
-    if [ "`systemctl is-enabled tuned`" == "enabled" ]; then
+    if [ "`systemctl is-enabled tuned 2>/dev/null`" == "enabled" ]; then
       state "System: tuned auto-starts on boot" 1
     else
       state "System: tuned does not auto-start on boot" 0
@@ -169,7 +169,7 @@ function _check_service_is_running() {
   esac
 
   if is_centos_rhel_7; then
-    if [ "`systemctl is-enabled $service`" == "enabled" ]; then
+    if [ "`systemctl is-enabled $service 2>/dev/null`" == "enabled" ]; then
       state "$prefix: $service auto-starts on boot" 0
     else
       state "$prefix: $service does not auto-start on boot" 1
@@ -200,7 +200,7 @@ function _check_service_is_not_running() {
   esac
 
   if is_centos_rhel_7; then
-    if [ "`systemctl is-enabled $service`" == "enabled" ]; then
+    if [ "`systemctl is-enabled $service 2>/dev/null`" == "enabled" ]; then
       state "$prefix: $service auto-starts on boot" 0
     else
       state "$prefix: $service does not auto-start on boot" 1
