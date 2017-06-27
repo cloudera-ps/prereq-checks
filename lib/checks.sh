@@ -257,6 +257,15 @@ function is_ntp_in_sync() {
   fi 
 }
 
+function check_only_64bit_packages_installed() {
+  local packages_32bit=`rpm -qa --queryformat '\t%{NAME} %{ARCH}\n' | grep 'i[6543]86' | cut -d' ' -f1`
+  if [ "$packages_32bit" ]; then
+    state "Only 64bit packages: 32bit packages are installed:\n$packages_32bit" 1
+  else
+    state "Only 64bit packages: Only 64bit packages are installed" 0
+  fi
+}
+
 function checks() {
   print_header "Prerequisite checks"
   check_os
@@ -279,4 +288,5 @@ function checks() {
   check_java
   check_database
   check_jdbc_connector
+  check_only_64bit_packages_installed
 }
