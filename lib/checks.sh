@@ -249,20 +249,34 @@ function is_centos_rhel_7() {
   fi
 }
 
-function is_ntp_in_sync() {
-  if [ `ntpstat | grep "synchronised to NTP server" | wc -l` -eq 1 ]; then
-    state "System: Clock is synchronized against the NTPD server" 0
-  else
-    state "System: NTP is not synchronized. Check ntpstat to troubleshoot" 1
-  fi 
-}
-
 function check_only_64bit_packages_installed() {
   local packages_32bit=`rpm -qa --queryformat '\t%{NAME} %{ARCH}\n' | grep 'i[6543]86' | cut -d' ' -f1`
   if [ "$packages_32bit" ]; then
     state "Only 64bit packages: 32bit packages are installed:\n$packages_32bit" 1
   else
     state "Only 64bit packages: Only 64bit packages are installed" 0
+  fi
+}
+
+function check_ntpd_sync() {
+  ntpstat > /dev/null
+  if [ $? -gt 0 ]; then
+    state "System: NTPD is not synchronized - Please investigate" 1
+  else
+    limit=1000   # Set limit in milliseconds
+    offsets=$(ntpstat | tail -n +2 | head -n 1 | cut -c 27- | tr -d ' ms')
+    is_unsync=false
+    for offset in ${offsets}; do
+      if [ ${offset:-0} -ge ${limit:-100} ]; then
+        #state "System: NTPD offset is excessive: ${offset:-0} [ms] > ${limit:-100} [ms] - Please investigate" 1
+        $is_unsync=true
+      fi
+    done
+    if [ "$is_unsync" = true ]; then
+      state "System: NTPD is not synchronized - Please investigate" 1
+    else
+      state "System: NTPD is synchronized." 0
+    fi
   fi
 }
 
@@ -274,16 +288,15 @@ function checks() {
     ntpd_used="$(_validate_service_state 'System' 'ntpd')"
     if [ $ntpd_used -eq 0 ]; then
       _check_service_is_running 'System' 'ntpd'
-      is_ntp_in_sync
     else
     # Add check to see if chrony is actually synchronizing the clock. Use the command "chronyc tracking"
       _check_service_is_running     'System' 'chronyd'
     fi
   else
     _check_service_is_running 'System' 'ntpd'
-    is_ntp_in_sync
   fi
 
+  check_ntpd_sync
   check_network
   check_java
   check_database
