@@ -144,8 +144,11 @@ function check_network() {
   fi
 
   # http://www.cloudera.com/content/www/en-us/documentation/enterprise/latest/topics/install_cdh_disable_iptables.html
-  _check_service_is_not_running 'Network' 'iptables'
-
+  if is_centos_rhel_7; then 
+    _check_service_is_not_running 'Network' 'firewalld'
+  else
+    _check_service_is_not_running 'Network' 'iptables'
+  fi 
   _check_service_is_running     'Network' 'nscd'
   _check_service_is_not_running 'Network' 'sssd'
 }
@@ -156,6 +159,13 @@ function service_cmd() {
   else
     echo "service $service status"
   fi
+}
+
+function _validate_service_state() {
+  local prefix=$1
+  local service=$2
+  sudo `service_cmd` &>/dev/null
+  echo $?
 }
 
 function _check_service_is_running() {
@@ -239,15 +249,30 @@ function is_centos_rhel_7() {
   fi
 }
 
+function is_ntp_in_sync() {
+  if [ `ntpstat | grep "synchronised to NTP server" | wc -l` -eq 1 ]; then
+    state "System: Clock is synchronized against the NTPD server" 0
+  else
+    state "System: NTP is not synchronized. Check ntpstat to troubleshoot" 1
+  fi 
+}
+
 function checks() {
   print_header "Prerequisite checks"
   check_os
 
   if is_centos_rhel_7; then
-    _check_service_is_not_running 'System' 'ntpd'
-    _check_service_is_running     'System' 'chronyd'
+    ntpd_used="$(_validate_service_state 'System' 'ntpd')"
+    if [ $ntpd_used -eq 0 ]; then
+      _check_service_is_running 'System' 'ntpd'
+      is_ntp_in_sync
+    else
+    # Add check to see if chrony is actually synchronizing the clock. Use the command "chronyc tracking"
+      _check_service_is_running     'System' 'chronyd'
+    fi
   else
     _check_service_is_running 'System' 'ntpd'
+    is_ntp_in_sync
   fi
 
   check_network
