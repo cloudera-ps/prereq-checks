@@ -81,6 +81,27 @@ function check_os() {
     Disabled|Permissive) state "$msg" 0;;
     *)                   state "$msg. Actual: `getenforce`" 1;;
   esac
+
+  if is_centos_rhel_7; then
+    ntpd_used="$(_validate_service_state 'System' 'ntpd')"
+    if [ $ntpd_used -eq 0 ]; then
+      _check_service_is_running 'System' 'ntpd'
+      is_ntp_in_sync
+    else
+    # Add check to see if chrony is actually synchronizing the clock. Use the command "chronyc tracking"
+      _check_service_is_running     'System' 'chronyd'
+    fi
+  else
+    _check_service_is_running 'System' 'ntpd'
+    is_ntp_in_sync
+  fi
+
+  local packages_32bit=`rpm -qa --queryformat '\t%{NAME} %{ARCH}\n' | grep 'i[6543]86' | cut -d' ' -f1`
+  if [ "$packages_32bit" ]; then
+    state "System: Found the following 32bit packages installed:\n$packages_32bit" 1
+  else
+    state "System: Only 64bit packages should be installed" 0
+  fi
 }
 
 function check_database() {
@@ -144,11 +165,11 @@ function check_network() {
   fi
 
   # http://www.cloudera.com/content/www/en-us/documentation/enterprise/latest/topics/install_cdh_disable_iptables.html
-  if is_centos_rhel_7; then 
+  if is_centos_rhel_7; then
     _check_service_is_not_running 'Network' 'firewalld'
   else
     _check_service_is_not_running 'Network' 'iptables'
-  fi 
+  fi
   _check_service_is_running     'Network' 'nscd'
   _check_service_is_not_running 'Network' 'sssd'
 }
@@ -254,39 +275,14 @@ function is_ntp_in_sync() {
     state "System: Clock is synchronized against the NTPD server" 0
   else
     state "System: NTP is not synchronized. Check ntpstat to troubleshoot" 1
-  fi 
-}
-
-function check_only_64bit_packages_installed() {
-  local packages_32bit=`rpm -qa --queryformat '\t%{NAME} %{ARCH}\n' | grep 'i[6543]86' | cut -d' ' -f1`
-  if [ "$packages_32bit" ]; then
-    state "Only 64bit packages: 32bit packages are installed:\n$packages_32bit" 1
-  else
-    state "Only 64bit packages: Only 64bit packages are installed" 0
   fi
 }
 
 function checks() {
   print_header "Prerequisite checks"
   check_os
-
-  if is_centos_rhel_7; then
-    ntpd_used="$(_validate_service_state 'System' 'ntpd')"
-    if [ $ntpd_used -eq 0 ]; then
-      _check_service_is_running 'System' 'ntpd'
-      is_ntp_in_sync
-    else
-    # Add check to see if chrony is actually synchronizing the clock. Use the command "chronyc tracking"
-      _check_service_is_running     'System' 'chronyd'
-    fi
-  else
-    _check_service_is_running 'System' 'ntpd'
-    is_ntp_in_sync
-  fi
-
   check_network
   check_java
   check_database
   check_jdbc_connector
-  check_only_64bit_packages_installed
 }
