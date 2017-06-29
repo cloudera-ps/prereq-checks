@@ -27,7 +27,14 @@ function print_os() {
 function print_cpu_and_ram() {
   local cpu=`grep -m1 "^model name" /proc/cpuinfo | cut -d' ' -f3- | sed -e 's/(R)//' -e 's/Core(TM) //' -e 's/CPU //'`
   print_label "CPUs" "`nproc`x $cpu"
-  print_label "RAM" "`awk '/MemTotal:/ {printf "%d GB", $2/1000/1000}' /proc/meminfo`"
+  set `free -h | awk '/Mem:/ {print $2,$3,$4,$5,$6,$7}'`
+  print_label "Memory" ""
+  pad; printf "%-12s%s\n" "total" $1
+  pad; printf "%-12s%s\n" "used" $2
+  pad; printf "%-12s%s\n" "free" $3
+  pad; printf "%-12s%s\n" "shared" $4
+  pad; printf "%-12s%s\n" "buff/cache" $5
+  pad; printf "%-12s%s\n" "available" $6
 }
 
 function print_disks() {
