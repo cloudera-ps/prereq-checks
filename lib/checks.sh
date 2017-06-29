@@ -241,9 +241,9 @@ function _check_service_is_not_running() {
     [ "$chkconfig" ] || chkconfig=""
     if [ "$chkconfig" = "3:on" ]; then
       if [ "$service" = "sssd" ]; then
-	state "$prefix: $service auto-starts on boot" 2
+        state "$prefix: $service auto-starts on boot" 2
       else
-	state "$prefix: $service auto-starts on boot" 1
+        state "$prefix: $service auto-starts on boot" 1
       fi
     else
       state "$prefix: $service does not auto-start on boot" 0
@@ -328,4 +328,61 @@ function checks() {
   check_java
   check_database
   check_jdbc_connector
+}
+
+#
+# Code previously reside in verify.sh
+#
+function check_security() {
+  # the domainname passed by the caller, already checked to be non-empty
+  DOMAIN=$1
+  # the directory of the script
+  DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+  # the temp directory used, within $DIR
+  WORK_DIR=`mktemp -d -p ${DIR}`
+  # check if tmp dir was created
+  if [[ ! ${WORK_DIR} || ! -d ${WORK_DIR} ]]; then
+    echo "Could not create temp dir"
+    exit 1
+  fi
+  # deletes the temp directory
+  function cleanup {
+    rm -rf ${WORK_DIR}
+  }
+  # register the cleanup function to be called on the EXIT signal
+  trap cleanup EXIT
+  #
+  # implementation of script starts here
+  #
+  # cldap.dl is distributed by the Samba Team
+  # https://github.com/samba-team/samba/blob/master/examples/misc/cldap.pl
+  if [[ ! -f ${DIR}/cldap.pl ]]; then
+    >&2 echo "cldap.pl missing. Install it under ${DIR} directory and re-run"
+    exit 1
+  elif [[ ! -x ${DIR}/cldap.pl ]]; then
+    >&2 echo "cldap.pl is not executable. chmod +x on that script and re-run"
+    exit 1
+  else
+    dig -t SRV _kerberos_tcp.${DOMAIN} > ${WORK_DIR}/dig1.tmp
+    AC=`cat ${WORK_DIR}/dig1.tmp | grep "AUTHORITY: 1" | wc -l`
+    if [[ ${AC} -eq "1" ]]; then
+      AUTH=`cat ${WORK_DIR}/dig1.tmp | grep -A1 "AUTHORITY SECTION:" | tail -n 1`
+      SOAQ=`echo ${AUTH} | grep SOA | wc -l`
+      if [[ ${SOAQ} -eq "1" ]]; then
+        DC=`echo ${AUTH} | awk '{print $5}' | sed 's/.$//'`
+        ${DIR}/cldap.pl ${DOMAIN} -s ${DC} > ${WORK_DIR}/dc.tmp
+        SITEN=`cat ${WORK_DIR}/dc.tmp | grep --text "Server Site Name:" | awk '{print $NF}'`
+        dig @${DC} -t SRV _ldap._tcp.${SITEN}._sites.dc._msdcs.${DOMAIN} > ${WORK_DIR}/dig2.tmp
+
+        echo -e "AD Domain\t\t\t: ${DOMAIN}"
+        echo -e "Authoritative Domain Controller\t: ${DC}"
+        echo -e "Site Name\t\t\t: ${SITEN}"
+        echo -e "-----------------------------------------------------------------------------"
+        echo -e "# _service._proto.name.\t\tTTL\tclass\tSRV\tpriority\tweight\tport\ttarget."
+        cat ${WORK_DIR}/dig2.tmp | grep -A 100 "ANSWER SECTION" | grep -B 100 "Query time" | sed '1d' | sed '$d'
+      fi
+    else
+      echo "DOMAIN NOT FOUND"
+    fi
+  fi
 }
