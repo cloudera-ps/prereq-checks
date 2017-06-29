@@ -27,7 +27,8 @@ function print_os() {
 function print_cpu_and_ram() {
   local cpu=`grep -m1 "^model name" /proc/cpuinfo | cut -d' ' -f3- | sed -e 's/(R)//' -e 's/Core(TM) //' -e 's/CPU //'`
   print_label "CPUs" "`nproc`x $cpu"
-  print_label "RAM" "`awk '/MemTotal:/ {printf "%.1f GB", $2/1024/1024}' /proc/meminfo`"
+  # Total installed memory (MemTotal and SwapTotal in /proc/meminfo)
+  print_label "RAM" "`free -h | awk '/Mem:/ {print $2}'`"
 }
 
 function print_disks() {
