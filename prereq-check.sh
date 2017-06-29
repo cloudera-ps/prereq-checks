@@ -38,16 +38,67 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 . "$DIR/lib/info.sh"
 # Include libs (STOP)  --------------------------------------------------------
 
-echo "Cloudera Manager & CDH Prerequisites Checks v$VER"
+BANNER="Cloudera Manager & CDH Prerequisites Checks v$VER"
 
 if [ `uname` = 'Darwin' ]; then
   echo -e "\nThis tool runs on Linux only, not Mac OS."
   exit 1
 fi
 
-# Cache `rpm -qa` since it's slow and we call it several times
-RPM_QA=`rpm -qa | sort`
+function usage() {
+  SCRIPTNAME=$(basename $BASH_SOURCE)
+  echo "`tput bold`NAME:`tput sgr0`"
+  echo "  ${SCRIPTNAME} - ${BANNER}"
+  echo
+  echo "`tput bold`SYNOPSIS:`tput sgr0`"
+  echo "  ${SCRIPTNAME} [options]"
+  echo
+  echo "`tput bold`OPTIONS:`tput sgr0`"
+  echo "  -h, --help"
+  echo "    Show this message"
+  echo
+  echo "  -s, --security `tput smul`domain`tput sgr0`"
+  echo "    Run security checks"
+  echo
+  exit 1
+}
 
-system_info
-checks
-echo
+while [[ $# -gt 0 ]]; do
+  KEY=$1
+  case ${KEY} in
+    -h|--help)
+      OPT_USAGE=true
+      ;;
+    -s|--security)
+      OPT_DOMAIN=true
+      ARG_DOMAIN=$2
+      shift # Past argument
+      ;;
+    *)
+      # Unknown option
+      OPT_USAGE=true
+      >&2 echo "Unknown option: ${KEY}"
+      ;;
+  esac
+  shift # Past argument or value
+done
+
+if [[ ${OPT_USAGE} ]]; then
+  usage
+elif [[ ${OPT_DOMAIN} ]]; then
+  if [[ -z ${ARG_DOMAIN} ]]; then
+    >&2 echo "Missing domain argument. ex) AD.CLOUDERA.COM"
+    usage
+  else
+    check_security ${ARG_DOMAIN}
+  fi
+else
+  echo ${BANNER}
+
+  # Cache `rpm -qa` since it's slow and we call it several times
+  RPM_QA=`rpm -qa | sort`
+
+  system_info
+  checks
+  echo
+fi
