@@ -37,6 +37,12 @@ function print_disks() {
     sudo fdisk -l $d 2>/dev/null | grep "^Disk /dev/" | cut -d' ' -f3-4 | cut -d',' -f1
   done
 
+  echo "Mount:"
+  findmnt -lo source,target,fstype,options | grep '^/dev' | \
+  while read line; do
+    pad; echo $line
+  done
+
   local mnts=`mount | grep /data || true`
   if [ "$mnts" ]; then
     echo "Data mounts:"
@@ -82,11 +88,6 @@ function print_network() {
   print_label "DNS server" `grep "^nameserver" /etc/resolv.conf | cut -d' ' -f2`
 }
 
-function print_mount() {
-  echo "Mount:"
-  printf "%s\n" "`findmnt -lo source,target,fstype,options | egrep -i '^/dev'`"
-}
-
 function system_info() {
   print_header "System information"
   print_fqdn
@@ -97,5 +98,4 @@ function system_info() {
   print_cloudera_rpms
   print_time
   print_network
-  print_mount
 }
