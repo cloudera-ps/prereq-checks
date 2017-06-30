@@ -66,8 +66,13 @@ function print_free_space() {
 }
 
 function free_space() {
+  # Pick "Avail" column as "Free space:"
+  #
+  # $ df -Ph /opt
+  # Filesystem      Size  Used Avail Use% Mounted on
+  # /dev/sda1        99G  1.8G   92G   2% /
   local path=$1
-  local free=`df -Ph $path | tail -1 | cut -d' ' -f7`
+  local free=`df -Ph $path | tail -1 | awk '{print $4}'`
   pad
   printf "%-9s %s\n" $path $free
 }
