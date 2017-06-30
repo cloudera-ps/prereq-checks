@@ -33,7 +33,7 @@ dependencies. This is to avoid dependency hell in restrictive customer
 environments.
 
 Note that it does not run on Mac OS and has only been tested on RHEL/CentOS 6.5
-so far. Your Mileage May Vary.
+and 7.3 so far. Your Mileage May Vary.
 
 It requires root/superuser permissions for some commands.
 
@@ -63,6 +63,15 @@ just with all the libs concatenated into a single file so it's easier to handle.
 Simply execute it like in Option A:
 
     ./prereq-check-single.sh
+
+## Invocations
+
+| Command | |
+| --- | --- |
+| ./prereq-check.sh | run system check (default) |
+| ./prereq-check.sh --help | show usage |
+| ./prereq-chesk.sh --security &lt;domain&gt; | run security check |
+&lt;domain&gt; : LDAP domain name like AD.CLOUDERA.COM
 
 ## Contributions
 
