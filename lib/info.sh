@@ -18,7 +18,10 @@ function print_fqdn() {
 function print_os() {
   local distro="Unknown"
   if [ -f /etc/redhat-release ]; then
-    distro=`sed -e 's/release //' -e 's/ (Final)//' /etc/redhat-release`
+    distro=$( sed -e 's/ release / /' \
+                  -e 's/ ([[:alnum:]]*)//' \
+                  -e 's/CentOS Linux \([0-9]\).\([0-9]\).*/CentOS \1.\2/' \
+                  /etc/redhat-release )
   fi
   print_label "Distro" "$distro"
   print_label "Kernel" `uname -r`
