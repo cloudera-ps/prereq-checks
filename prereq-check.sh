@@ -4,7 +4,7 @@
 # prereq-check.sh: Cloudera Manager & CDH prereq check
 # =====================================================
 #
-# Copyright Cloudera Inc. 2015
+# Copyright 2015-2017 Cloudera, Inc.
 #
 # Display relevant system information and run installation prerequisite checks
 # for Cloudera Manager & CDH. For details, see README.md and
@@ -27,7 +27,7 @@
 # You are responsible for reviewing and testing any scripts you run thoroughly
 # before use in any non-testing environment.
 
-VER=1.2.1
+VER=1.3.0
 
 # Include libs (START) --------------------------------------------------------
 # Do not remove the place marker "Include libs (START|STOP)" comments. They are
