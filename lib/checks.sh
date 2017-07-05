@@ -255,6 +255,16 @@ function check_network() {
   fi
   _check_service_is_running     'Network' 'nscd'
   _check_service_is_not_running 'Network' 'sssd'
+
+  # Networking Protocols Support
+  # CDH requires IPv4. IPv6 is not supported and must be disabled.
+  # https://www.cloudera.com/documentation/enterprise/release-notes/topics/rn_consolidated_pcm.html
+  local msg="Network: IPv6 is not supported and must be disabled"
+  if [[ -z `ip addr show | grep inet6` ]]; then
+    state "${msg}" 0
+  else
+    state "${msg}" 1
+  fi
 }
 
 function service_cmd() {
