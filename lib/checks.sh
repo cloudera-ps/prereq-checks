@@ -265,6 +265,19 @@ function check_network() {
   else
     state "${msg}" 1
   fi
+
+  # Consistency check on forward (hostname to ip address) and
+  # reverse (ip address to hostname) resolutions.
+  # Note that an additional `.' in the PTR ANSWER SECTION.
+  local fqdn=`hostname -f`
+  local fwd_lookup=`dig -4 $fqdn A +short`
+  local rvs_lookup=`dig -4 -x $fwd_lookup PTR +short`
+  local msg="Network: Consistent name resolution of $fqdn"
+  if [[ "${fqdn}." = $rvs_lookup ]]; then
+    state "${msg}" 0
+  else
+    state "${msg}" 1
+  fi
 }
 
 function service_cmd() {
