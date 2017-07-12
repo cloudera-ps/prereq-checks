@@ -5,8 +5,12 @@ function print_label() {
 }
 
 function print_time() {
-  local timezone=`ls -lh /etc/localtime | cut -d' ' -f11 | cut -d'/' -f5-`
-  timezone="${timezone:-UTC}"
+  if is_centos_rhel_7; then
+    local timezone=`timedatectl | awk '/^\s+Time zone:/ { print $3 }'`
+  else
+    local timezone=`ls -l /etc/localtime | sed -e 's!^.*zoneinfo/!!'`
+  fi
+  timezone=${timezone:-UTC}
   print_label "Timezone" "$timezone"
   print_label "DateTime" "`date`"
 }
