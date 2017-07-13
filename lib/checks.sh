@@ -169,13 +169,16 @@ function check_os() {
     ntpd_used="$(_validate_service_state 'System' 'ntpd')"
     if [ $ntpd_used -eq 0 ]; then
       _check_service_is_running 'System' 'ntpd'
+      _check_service_is_autostart 'System' 'ntpd'
       is_ntp_in_sync
     else
     # Add check to see if chrony is actually synchronizing the clock. Use the command "chronyc tracking"
-      _check_service_is_running     'System' 'chronyd'
+      _check_service_is_running 'System' 'chronyd'
+      _check_service_is_autostart 'System' 'chronyd'
     fi
   else
     _check_service_is_running 'System' 'ntpd'
+    _check_service_is_autostart 'System' 'ntpd'
     is_ntp_in_sync
   fi
 
@@ -273,8 +276,10 @@ function check_network() {
     _check_service_is_not_running 'Network' 'iptables'
     _check_service_is_not_autostart 'Nerwork' 'iptables'
   fi
-  _check_service_is_running     'Network' 'nscd'
-  _check_service_is_not_running 'Network' 'sssd'
+  _check_service_is_running 'Network' 'nscd'
+  _check_service_is_autostart 'Network' 'nscd'
+  _check_service_is_running 'Network' 'sssd'
+  _check_service_is_autostart 'Network' 'sssd'
 
   # Networking Protocols Support
   # CDH requires IPv4. IPv6 is not supported and must be disabled.
@@ -318,19 +323,44 @@ function _validate_service_state() {
 function _check_service_is_running() {
   local prefix=$1
   local service=$2
-  sudo `service_cmd` &>/dev/null
-  case $? in
-    0) state "$prefix: $service is running"       0;;
-    3) state "$prefix: $service is not running"   1;;
-    *) state "$prefix: $service is not installed" 1;;
-  esac
-
   if is_centos_rhel_7; then
-    if [ "`systemctl is-enabled $service 2>/dev/null`" == "enabled" ]; then
-      state "$prefix: $service auto-starts on boot" 0
+    local sub_state=`systemctl show $service --type=service --property=SubState | sed -e 's/^.*=//'`
+    if [[ $sub_state = 'running' ]]; then
+      state "$prefix: $service is running" 0
     else
-      state "$prefix: $service does not auto-start on boot" 1
+      state "$prefix: $service is not running" 1
     fi
+  else
+    sudo `service_cmd` &>/dev/null
+    case $? in
+      0) state "$prefix: $service is running"       0;;
+      3) state "$prefix: $service is not running"   1;;
+      *) state "$prefix: $service is not installed" 1;;
+    esac
+  fi
+}
+
+function _check_service_is_autostart() {
+  local prefix=$1
+  local service=$2
+  if is_centos_rhel_7; then
+    local load_state=`systemctl show $service --type=service --property=LoadState | sed -e 's/^.*=//'`
+    case $load_state in
+      'loaded')
+        systemctl is-enabled $service --type=service --quiet
+        if [[ $? -eq 0 ]]; then
+          state "$prefix: $service auto-starts on boot" 0
+        else
+          state "$prefix: $service does not auto-start on boot" 1
+        fi
+        ;;
+      'not-found')
+        state "$prefix: $service is not loaded, so won't auto-start on boot" 1
+        ;;
+      *)
+        echo "Error: Uknown LoadState=$load_state for ${service}.service"
+        ;;
+    esac
   else
     local chkconfig=`chkconfig 2>/dev/null | awk "/^$service / {print \\$5}"`
     [ "$chkconfig" ] || chkconfig=""
