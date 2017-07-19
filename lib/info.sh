@@ -51,15 +51,62 @@ function print_disks() {
     pad; echo $line
   done
 
-  local mnts=`mount | grep /data || true`
-  if [ "$mnts" ]; then
-    echo "Data mounts:"
-    local IFS=$'\n'
-    for m in `echo "$mnts"`; do
-      pad; echo "$m"
+  function data_mounts() {
+    while read source target fstype options; do
+      local NOATIME=false
+      for option in `echo $options | tr ',' ' '`; do
+        if [[ $option = 'noatime' ]]; then
+          NOATIME=true
+        fi
+      done
+      echo -n "$source $target "
+      case $fstype in
+        'xfs')
+          local resblks=`xfs_io -xc resblks $target | awk '/^reserved blocks =/ { print $4 }'`
+          echo -en "\e[92m$fstype\033[0m, "
+          if [[ $resblks -eq 0 ]]; then
+            echo -en "\e[92mNo\033[0m reserved blocks, "
+          else
+            echo -en "\e[93m$resblks\033[0m blocks reserved, "
+          fi
+          if ${NOATIME}; then
+            echo -e "\e[92mnoatime\033[0m option specified|"
+          else
+            echo -e "without \e[93mnoatime\033[0m option|"
+          fi
+          ;;
+        'ext3') ;&
+        'ext4')
+          local resblks=`tune2fs -l $source | awk '/^Reserved block count:/ { print $4 }'`
+          echo -en "\e[92m$fstype\033[0m, "
+          if [[ $resblks -eq 0 ]]; then
+            echo -en "\e[92mNo\033[0m reserved blocks, "
+          else
+            echo -en "\e[93m$resblks\033[0m blocks reserved, "
+          fi
+          if ${NOATIME}; then
+            echo -e "\e[92mnoatime\033[0m option specified|"
+          else
+            echo -e "without \e[93mnoatime\033[0m option|"
+          fi
+          ;;
+        *)
+          echo -e "\e[91m$fstype\033[0m is not recommended for a data mount|"
+          ;;
+      esac
     done
+  }
+
+  echo "Data mounts:"
+  local DATA_MOUNTS=$( findmnt -lno source,target,fstype,options | \
+                       grep -E '[[:space:]]/data' | data_mounts )
+  if [[ -z ${DATA_MOUNTS} ]]; then
+    pad; echo "None found"
   else
-    print_label "Data mounts" "None found"
+    local IFS='|'
+    echo ${DATA_MOUNTS} | while read line; do
+      pad; echo $line
+    done
   fi
 }
 

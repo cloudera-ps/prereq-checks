@@ -241,12 +241,12 @@ function check_network() {
 
   check_hostname
 
-  local entries=`cat /etc/hosts | egrep -v "^#|^ *$" | wc -l`
+  local entries=`cat /etc/hosts | grep -Ev "^#|^ *$" | wc -l`
   local msg="Network: /etc/hosts entries should be <= 2 (use DNS). Actual: $entries"
   if [ "$entries" -le 2 ]; then
     local rc=0
     while read line; do
-      entry=`echo $line | egrep -v "^#|^ *$"`
+      entry=`echo $line | grep -Ev "^#|^ *$"`
       if [ ! "$entry" = "" ]; then
         set -- `echo $line | awk '{ print $1, $2 }'`
         if [ "$1" = "127.0.0.1" -o "$1" = "::1" ] && [ "$2" = "localhost" ]; then
@@ -411,7 +411,7 @@ function check_hostname() {
   # all domain names. Each label must be from 1 to 63 characters long, and the
   # entire hostname (including delimiting dots but not a trailing dot) has a
   # maximum of 253 ASCII characters.
-  echo $fqdn | egrep -iq '^([a-z0-9][a-z0-9\-]{1,61}[a-z0-9]\.)+[a-z]+$'
+  echo $fqdn | grep -Eiq '^([a-z0-9][a-z0-9\-]{1,61}[a-z0-9]\.)+[a-z]+$'
   local valid_format=$?
   if [[ $valid_format -eq 0 && ${#fqdn} -le 253 ]]; then
     if [[ ${#short} -gt 15 ]]; then
