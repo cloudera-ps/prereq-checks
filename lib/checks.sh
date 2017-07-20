@@ -185,6 +185,18 @@ function check_os() {
   else
     state "System: Only 64bit packages should be installed" 0
   fi
+
+  local noexec=false
+  for option in `findmnt -lno options --target /tmp | tr ',' ' '`; do
+    if [[ $option = 'noexec' ]]; then
+      noexec=true
+    fi
+  done
+  if $noexec; then
+    state "System: /tmp mounted with noexec option cause troubles in older version of CMs" 2
+  else
+    state "System: /tmp mounted with noexec option cause troubles in older version of CMs" 0
+  fi
 }
 
 function check_database() {
