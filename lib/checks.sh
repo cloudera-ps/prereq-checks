@@ -186,6 +186,23 @@ function check_os() {
     state "System: Only 64bit packages should be installed" 0
   fi
 
+  local UNNECESSARY_SERVICES=(
+    'bluetooth'
+    'cups'
+    'iptables'
+    'ip6tables'
+    'postfix'
+  )
+  for svc in ${UNNECESSARY_SERVICES[@]}; do
+    _check_service_is_running 'DUMMY' ${svc} > /dev/null
+    local svc_running=${SERVICE_STATUS['running']}
+    if $svc_running; then
+      state "System: $svc is running (unneeded)" 2
+    else
+      state "System: $svc is not running (unneeded)" 0
+    fi
+  done
+
   local noexec=false
   for option in `findmnt -lno options --target /tmp | tr ',' ' '`; do
     if [[ $option = 'noexec' ]]; then
