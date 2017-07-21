@@ -193,9 +193,9 @@ function check_os() {
     fi
   done
   if $noexec; then
-    state "System: /tmp mounted with noexec option cause troubles in older version of CMs" 2
+    state "System: /tmp mounted with noexec fails for CM versions older than 5.8.4, 5.9.2, and 5.10.0" 2
   else
-    state "System: /tmp mounted with noexec option cause troubles in older version of CMs" 0
+    state "System: /tmp mounted with noexec fails for CM versions older than 5.8.4, 5.9.2, and 5.10.0" 0
   fi
 }
 
