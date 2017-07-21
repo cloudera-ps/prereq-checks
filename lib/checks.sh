@@ -197,9 +197,9 @@ function check_os() {
     _check_service_is_running 'DUMMY' ${svc} > /dev/null
     local svc_running=${SERVICE_STATUS['running']}
     if $svc_running; then
-      state "System: $svc is running (unneeded)" 2
+      state "System: $svc is running (not recommended)" 2
     else
-      state "System: $svc is not running (unneeded)" 0
+      state "System: $svc is not running (recommended)" 0
     fi
   done
 
