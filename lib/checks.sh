@@ -172,7 +172,7 @@ function check_os() {
       is_ntp_in_sync
     else
     # Add check to see if chrony is actually synchronizing the clock. Use the command "chronyc tracking"
-      _check_service_is_running     'System' 'chronyd'
+      _check_service_is_running 'System' 'chronyd'
     fi
   else
     _check_service_is_running 'System' 'ntpd'
@@ -244,6 +244,8 @@ function check_jdbc_connector() {
   fi
 }
 
+declare -A SERVICE_STATUS
+
 function check_network() {
   if [ `ping -W1 -c1 8.8.8.8 &>/dev/null; echo $?` -eq 0 ]; then
     state "Network: Has Internet connection" 0
@@ -280,13 +282,49 @@ function check_network() {
   # http://www.cloudera.com/content/www/en-us/documentation/enterprise/latest/topics/install_cdh_disable_iptables.html
   if is_centos_rhel_7; then
     _check_service_is_not_running 'Network' 'firewalld'
-    _check_service_is_not_autostart 'Network' 'firewalld'
   else
     _check_service_is_not_running 'Network' 'iptables'
-    _check_service_is_not_autostart 'Nerwork' 'iptables'
   fi
-  _check_service_is_running     'Network' 'nscd'
-  _check_service_is_not_running 'Network' 'sssd'
+  _check_service_is_running 'Network' 'nscd'
+  local nscd_running=${SERVICE_STATUS['running']}
+  _check_service_is_running 'Network' 'sssd' 2
+  local sssd_running=${SERVICE_STATUS['running']}
+
+  if $nscd_running && $sssd_running; then
+    # 7.8. USING NSCD WITH SSSD
+    # SSSD is not designed to be used with the NSCD daemon.
+    # Even though SSSD does not directly conflict with NSCD, using both services
+    # can result in unexpected behavior, especially with how long entries are cached.
+    # https://access.redhat.com/documentation/en-US/Red_Hat_Enterprise_Linux/7/html/System-Level_Authentication_Guide/usingnscd-sssd.html
+
+    # How-to: Deploy Apache Hadoop Clusters Like a Boss
+    # Name Service Caching
+    # If you’re running Red Hat SSSD, you’ll need to modify the nscd configuration;
+    # with SSSD enabled, don’t use nscd to cache passwd, group, or netgroup information.
+    # http://blog.cloudera.com/blog/2015/01/how-to-deploy-apache-hadoop-clusters-like-a-boss/
+    for cached in `awk '/^[^#]*enable-cache.*yes/ { print $2 }' /etc/nscd.conf`; do
+      case $cached in
+        'passwd') ;&
+        'group') ;&
+        'netgroup')
+          state "Network: nscd should not cache $cached with sssd enabled" 1
+          ;;
+        *)
+          ;;
+      esac
+    done
+    for non_cached in `awk '/^[^#]*enable-cache.*no/ { print $2 }' /etc/nscd.conf`; do
+      case $non_cached in
+        'passwd') ;&
+        'group') ;&
+        'netgroup')
+          state "Network: nscd shoud not cache $non_cached with sssd enabled" 0
+          ;;
+        *)
+          ;;
+      esac
+    done
+  fi
 
   # Networking Protocols Support
   # CDH requires IPv4. IPv6 is not supported and must be disabled.
@@ -330,26 +368,71 @@ function _validate_service_state() {
 function _check_service_is_running() {
   local prefix=$1
   local service=$2
-  sudo `service_cmd` &>/dev/null
-  case $? in
-    0) state "$prefix: $service is running"       0;;
-    3) state "$prefix: $service is not running"   1;;
-    *) state "$prefix: $service is not installed" 1;;
-  esac
-
+  local msgflag=${3:-1}
   if is_centos_rhel_7; then
-    if [ "`systemctl is-enabled $service 2>/dev/null`" == "enabled" ]; then
-      state "$prefix: $service auto-starts on boot" 0
+    # Check the running status of the service (RHEL/CentOS7)
+    local sub_state=`systemctl show $service --type=service --property=SubState | sed -e 's/^.*=//'`
+    if [[ $sub_state = 'running' ]]; then
+      state "$prefix: $service is running" 0
+      SERVICE_STATUS['running']=true
     else
-      state "$prefix: $service does not auto-start on boot" 1
+      state "$prefix: $service is not running" $msgflag
+      SERVICE_STATUS['running']=false
     fi
+    # Check the load state of the service (RHEL/CentOS7)
+    local load_state=`systemctl show $service --type=service --property=LoadState | sed -e 's/^.*=//'`
+    case $load_state in
+      'loaded')
+        systemctl is-enabled $service --type=service --quiet
+        if [[ $? -eq 0 ]]; then
+          state "$prefix: $service auto-starts on boot" 0
+          SERVICE_STATUS['auto-start']=true
+        else
+          state "$prefix: $service does not auto-start on boot" $msgflag
+          SERVICE_STATUS['auto-start']=false
+        fi
+        SERVICE_STATUS['installed']=true
+        ;;
+      'not-found')
+        state "$prefix: $service is not loaded, so won't auto-start on boot" $msgflag
+        SERVICE_STATUS['auto-start']=false
+        SERVICE_STATUS['installed']=false
+        ;;
+      *)
+        echo "Error: Uknown LoadState=$load_state for ${service}.service"
+        SERVICE_STATUS['auto-start']=false
+        SERVICE_STATUS['installed']=false
+        ;;
+    esac
   else
+    # Check the running status of the service (RHEL/CentOS6)
+    sudo `service_cmd` &>/dev/null
+    case $? in
+      0)
+        state "$prefix: $service is running" 0
+        SERVICE_STATUS['running']=true
+        SERVICE_STATUS['installed']=true
+        ;;
+      3)
+        state "$prefix: $service is not running" $msgflag
+        SERVICE_STATUS['running']=false
+        SERVICE_STATUS['installed']=true
+        ;;
+      *)
+        state "$prefix: $service is not installed" $msgflag
+        SERVICE_STATUS['running']=false
+        SERVICE_STATUS['installed']=false
+        ;;
+    esac
+    # Check the runlevel information of the service (RHEL/CentOS6)
     local chkconfig=`chkconfig 2>/dev/null | awk "/^$service / {print \\$5}"`
     [ "$chkconfig" ] || chkconfig=""
     if [ "$chkconfig" = "3:on" ]; then
       state "$prefix: $service auto-starts on boot" 0
+      SERVICE_STATUS['auto-start']=true
     else
-      state "$prefix: $service does not auto-start on boot" 1
+      state "$prefix: $service does not auto-start on boot" $msgflag
+      SERVICE_STATUS['auto-start']=false
     fi
   fi
 }
@@ -358,30 +441,14 @@ function _check_service_is_not_running() {
   local prefix=$1
   local service=$2
   if is_centos_rhel_7; then
+    # Check the running status of the service (RHEL/CentOS7)
     local sub_state=`systemctl show $service --type=service --property=SubState | sed -e 's/^.*=//'`
     if [[ $sub_state = 'running' ]]; then
       state "$prefix: $service should not running" 1
     else
       state "$prefix: $service is not running" 0
     fi
-  else
-    sudo `service_cmd` &>/dev/null
-    case $? in
-      0) state "$prefix: $service should not running" 1
-       if [ "$service" = "iptables" ]; then
-         echo "       iptable routes:"
-         sudo iptables -L | sed "s/^/         /"
-       fi;;
-      3) state "$prefix: $service is not running"   0;;
-      *) state "$prefix: $service is not installed" 1;;
-    esac
-  fi
-}
-
-function _check_service_is_not_autostart() {
-  local prefix=$1
-  local service=$2
-  if is_centos_rhel_7; then
+    # Check the load state of the service (RHEL/CentOS7)
     local load_state=`systemctl show $service --type=service --property=LoadState | sed -e 's/^.*=//'`
     case $load_state in
       'loaded')
@@ -400,6 +467,18 @@ function _check_service_is_not_autostart() {
         ;;
     esac
   else
+    # Check the running status of the service (RHEL/CentOS6)
+    sudo `service_cmd` &>/dev/null
+    case $? in
+      0) state "$prefix: $service should not running" 1
+       if [ "$service" = "iptables" ]; then
+         echo "       iptable routes:"
+         sudo iptables -L | sed "s/^/         /"
+       fi;;
+      3) state "$prefix: $service is not running"   0;;
+      *) state "$prefix: $service is not installed" 1;;
+    esac
+    # Check the runlevel information of the service (RHEL/CentOS6)
     local chkconfig=`chkconfig 2>/dev/null | awk "/^$service / {print \\$5}"`
     [ "$chkconfig" ] || chkconfig=""
     if [ "$chkconfig" = "3:on" ]; then
