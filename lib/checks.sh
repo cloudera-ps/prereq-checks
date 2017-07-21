@@ -295,7 +295,7 @@ function check_network() {
         'passwd') ;&
         'group') ;&
         'netgroup')
-          state "Network: NSCD should not cache $cached with SSSD enabled" 1
+          state "Network: nscd should not cache $cached with sssd enabled" 1
           ;;
         *)
           ;;
@@ -306,7 +306,7 @@ function check_network() {
         'passwd') ;&
         'group') ;&
         'netgroup')
-          state "Network: NSCD shoud not cache $non_cached with SSSD enabled" 0
+          state "Network: nscd shoud not cache $non_cached with sssd enabled" 0
           ;;
         *)
           ;;
