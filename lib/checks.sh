@@ -519,7 +519,8 @@ function check_hostname() {
   # all domain names. Each label must be from 1 to 63 characters long, and the
   # entire hostname (including delimiting dots but not a trailing dot) has a
   # maximum of 253 ASCII characters.
-  echo $fqdn | grep -Eiq '^([a-z0-9][a-z0-9\-]{1,61}[a-z0-9]\.)+[a-z]+$'
+  local VALID_FQDN='^([a-z]([a-z0-9\-]{0,61}[a-z0-9])?\.)+[a-z]([a-z0-9\-]{0,61}[a-z0-9])?$'
+  echo $fqdn | grep -Eiq $VALID_FQDN
   local valid_format=$?
   if [[ $valid_format -eq 0 && ${#fqdn} -le 253 ]]; then
     if [[ ${#short} -gt 15 ]]; then
