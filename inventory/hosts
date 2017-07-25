@@ -1,0 +1,12 @@
+#
+# See Ansible Documentation > Inventory > Hosts and Groups
+# http://docs.ansible.com/ansible/latest/intro_inventory.html#hosts-and-groups
+#
+rack01-node01.example.com
+rack01-node02.example.com
+rack01-node03.example.com
+rack01-node04.example.com
+rack02-node01.example.com
+rack02-node02.example.com
+rack02-node03.example.com
+rack02-node04.example.com
