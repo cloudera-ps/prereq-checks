@@ -1,0 +1,54 @@
+---
+- name: create temporary directory
+  tempfile:
+    state: directory
+    suffix: prck
+  register: prckdir
+
+- name: create lib/ sub-directory
+  file:
+    path={{ prckdir.path }}/lib
+    state=directory
+    mode=0755
+
+- name: copy script files to target
+  copy:
+    src={{ item }}
+    dest={{ prckdir.path }}/lib/{{ item }}
+    owner=root
+    group=root
+    mode=0755
+  with_items:
+    - checks.sh
+    - cldap.pl
+    - info.sh
+    - utils.sh
+
+- name: copy driver file to target
+  copy:
+    src=prereq-check.sh
+    dest={{ prckdir.path }}/prereq-check.sh
+    owner=root
+    group=root
+    mode=0755
+
+- name: run driver
+  shell:
+    ./prereq-check.sh > prereq-check.out
+  args:
+    chdir: "{{ prckdir.path }}"
+  register: check_result
+
+- name: fetch outputs from target
+  fetch:
+    src={{ prckdir.path }}/prereq-check.out
+    dest={{ outputdir }}/{{ inventory_hostname }}/
+    flat=yes
+    fail_on_missing=yes
+
+- name: clean up temporary directory
+  file:
+    path: "{{ prckdir.path }}"
+    state: absent
+
+#- debug: var=prckdir
