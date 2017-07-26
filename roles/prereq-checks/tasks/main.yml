@@ -42,7 +42,7 @@
 - name: fetch outputs from target
   fetch:
     src={{ prckdir.path }}/prereq-check.out
-    dest={{ outputdir }}/{{ inventory_hostname }}/
+    dest={{ outputdir }}/{{ inventory_hostname }}.out
     flat=yes
     fail_on_missing=yes
 
