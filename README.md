@@ -1,5 +1,7 @@
 # CM & CDH Prerequisites Checker
 
+This is a test.
+
 Bash script for displaying relevant system information and performing
 prerequisite checks for Cloudera Manager & CDH installation.
 
