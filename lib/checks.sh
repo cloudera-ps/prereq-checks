@@ -264,12 +264,6 @@ function check_jdbc_connector() {
 declare -A SERVICE_STATUS
 
 function check_network() {
-  if [ `ping -W1 -c1 8.8.8.8 &>/dev/null; echo $?` -eq 0 ]; then
-    state "Network: Has Internet connection" 0
-  else
-    state "Network: No Internet connection" 2
-  fi
-
   check_hostname
 
   local entries=`cat /etc/hosts | grep -Ev "^#|^ *$" | wc -l`
