@@ -201,7 +201,7 @@ function _check_service_is_not_running() {
 function check_ulimits() {
   for u in hdfs mapred hbase; do
     for t in nofile nproc; do
-      local match=`grep "^$u" /etc/security/limits.d/*.conf | grep "\s$t\s"`
+      local match=`grep "^$u" /etc/security/limits.d/*.conf | grep -v mapreduce.conf | grep "\s$t\s"`
       local v=`echo "$match" | awk '{print $4}'`
       if [ ! "$match" ] || [ "$v"  -lt 32768 ]; then
         [ "$v" ] || v=1024
