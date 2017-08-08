@@ -57,22 +57,32 @@ function usage() {
   echo "  -h, --help"
   echo "    Show this message"
   echo
-  echo "  -s, --security `tput smul`domain`tput sgr0`"
-  echo "    Run security checks"
+  echo "  -a, --addc `tput smul`domain`tput sgr0`"
+  echo "    Run tests against Active Directory Domain Controller"
+  echo
+  echo "  -u, --usertest `tput smul`ldapURI`tput sgr0` `tput smul`binddn`tput sgr0` `tput smul`searchbase`tput sgr0` `tput smul`bind_user_password`tput sgr0`"
+  echo "    Run tests against Active Directory delegated user for Direct to AD integration"
+  echo "    http://blog.cloudera.com/blog/2014/07/new-in-cloudera-manager-5-1-direct-active-directory-integration-for-kerberos-authentication/"
   echo
   exit 1
 }
 
-while [[ $# -gt 0 ]]; do
+if [[ $# -gt 0 ]]; then
   KEY=$1
   case ${KEY} in
     -h|--help)
       OPT_USAGE=true
       ;;
-    -s|--security)
+    -a|--addc)
       OPT_DOMAIN=true
       ARG_DOMAIN=$2
-      shift # Past argument
+      ;;
+    -p|--privilegetest)
+      OPT_USER=true
+      ARG_LDAPURI=$2
+      ARG_BINDDN=$3
+      ARG_SEARCHBASE=$4
+      ARG_USERPSWD=$5
       ;;
     *)
       # Unknown option
@@ -80,8 +90,7 @@ while [[ $# -gt 0 ]]; do
       >&2 echo "Unknown option: ${KEY}"
       ;;
   esac
-  shift # Past argument or value
-done
+fi
 
 if [[ ${OPT_USAGE} ]]; then
   usage
@@ -90,7 +99,14 @@ elif [[ ${OPT_DOMAIN} ]]; then
     >&2 echo "Missing domain argument. ex) AD.CLOUDERA.COM"
     usage
   else
-    check_security ${ARG_DOMAIN}
+    check_addc ${ARG_DOMAIN}
+  fi
+elif [[ ${OPT_USER} ]]; then
+  if [[ -z ${ARG_LDAPURI} || -z ${ARG_BINDDN} || -z ${ARG_SEARCHBASE} || -z ${ARG_USERPSWD} ]]; then
+    >&2 echo "Options missing"
+    usage
+  else
+    check_privs ${ARG_LDAPURI} ${ARG_BINDDN} ${ARG_SEARCHBASE}
   fi
 else
   echo ${BANNER}
@@ -102,3 +118,4 @@ else
   checks
   echo
 fi
+

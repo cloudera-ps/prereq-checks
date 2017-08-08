@@ -5,11 +5,7 @@ function print_label() {
 }
 
 function print_time() {
-  if is_centos_rhel_7; then
-    local timezone=`timedatectl | awk '/^\s+Time zone:/ { print $3 }'`
-  else
-    local timezone=`ls -l /etc/localtime | sed -e 's!^.*zoneinfo/!!'`
-  fi
+  local timezone=`date | awk '{print $(NF-1)}'`
   timezone=${timezone:-UTC}
   print_label "Timezone" "$timezone"
   print_label "DateTime" "`date`"
@@ -148,6 +144,14 @@ function print_network() {
   print_label "DNS server" `grep "^nameserver" /etc/resolv.conf | cut -d' ' -f2`
 }
 
+function print_internet() {
+  if [ `ping -W1 -c1 8.8.8.8 &>/dev/null; echo $?` -eq 0 ]; then
+    print_label "Internet" "Yes"
+  else
+    print_label "Internet" "No"
+  fi
+}
+
 function system_info() {
   print_header "System information"
   print_fqdn
@@ -158,4 +162,5 @@ function system_info() {
   print_cloudera_rpms
   print_time
   print_network
+  print_internet
 }
