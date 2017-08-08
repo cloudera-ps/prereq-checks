@@ -36,6 +36,14 @@ by using [Ansible](https://www.ansible.com/) to automate distribution and
 execution of the script file(s) and gathering the inspection results from
 the multiple target hosts.
 
+## Prerequisites
+1. For using the distributed mode, run
+`    yum install ansible`
+2. For using the AD domain controller checks, run
+`    yum install perl-Convert-ASN1`
+3. For using the AD delegated user privilege checks, run
+`    yum install openldap-clients`
+
 ## Running it locally
 
 Running the script is easy as it is intentionally written in Bash to avoid any
@@ -80,8 +88,8 @@ Simply execute it like in Option A:
 | --- | --- |
 | ./prereq-check.sh | run system check (default) |
 | ./prereq-check.sh --help | show usage |
-| ./prereq-chesk.sh --security &lt;domain&gt; | run security check |
-&lt;domain&gt; : LDAP domain name like AD.CLOUDERA.COM
+| ./prereq-chesk.sh --addc &lt;domain&gt; | run AD domain controller related checks |
+| ./prereq-chesk.sh --usertest &lt;domain&gt; | run tests against Active Directory delegated user for Direct to AD integration |
 
 ## Running it with Ansible
 
