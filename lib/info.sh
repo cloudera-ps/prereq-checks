@@ -35,7 +35,12 @@ function print_cpu_and_ram() {
   local cpu=`grep -m1 "^model name" /proc/cpuinfo | cut -d' ' -f3- | sed -e 's/(R)//' -e 's/Core(TM) //' -e 's/CPU //'`
   print_label "CPUs" "`nproc`x $cpu"
   # Total installed memory (MemTotal and SwapTotal in /proc/meminfo)
-  print_label "RAM" "`free -h | awk '/Mem:/ {print $2}'`"
+  # special case for CentOS 6.5 and older which doesn't support human-readable -h flag
+  if [[ $(free -V) =~ "3.2.8" ]] ; then
+    print_label "RAM" "`free -m | awk '/Mem:/ {print $2}'`GB"
+  else
+    print_label "RAM" "`free -h | awk '/Mem:/ {print $2}'`"
+  fi
 }
 
 function print_disks() {
