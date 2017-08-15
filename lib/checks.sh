@@ -238,10 +238,7 @@ function check_database() {
   fi
 
   case $mysql_ver in
-    '5.1') ;&
-    '5.5') ;&
-    '5.6') ;&
-    '5.7')
+    '5.1'|'5.5'|'5.6'|'5.7')
       state "Database: Supported MySQL server installed. $mysql_rpm" 0
       ;;
     *)
@@ -261,7 +258,7 @@ function check_jdbc_connector() {
   fi
 }
 
-declare -A SERVICE_STATUS
+SERVICE_STATUS=()
 
 function check_network() {
   if [ `ping -W1 -c1 8.8.8.8 &>/dev/null; echo $?` -eq 0 ]; then
@@ -321,9 +318,7 @@ function check_network() {
     # http://blog.cloudera.com/blog/2015/01/how-to-deploy-apache-hadoop-clusters-like-a-boss/
     for cached in `awk '/^[^#]*enable-cache.*yes/ { print $2 }' /etc/nscd.conf`; do
       case $cached in
-        'passwd') ;&
-        'group') ;&
-        'netgroup')
+        'passwd'|'group'|'netgroup')
           state "Network: nscd should not cache $cached with sssd enabled" 1
           ;;
         *)
@@ -332,9 +327,7 @@ function check_network() {
     done
     for non_cached in `awk '/^[^#]*enable-cache.*no/ { print $2 }' /etc/nscd.conf`; do
       case $non_cached in
-        'passwd') ;&
-        'group') ;&
-        'netgroup')
+        'passwd'|'group'|'netgroup')
           state "Network: nscd shoud not cache $non_cached with sssd enabled" 0
           ;;
         *)
