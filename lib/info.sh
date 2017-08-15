@@ -75,8 +75,7 @@ function print_disks() {
             echo -e "without \e[93mnoatime\033[0m option|"
           fi
           ;;
-        'ext3') ;&
-        'ext4')
+        'ext3'|'ext4')
           local resblks=`tune2fs -l $source | awk '/^Reserved block count:/ { print $4 }'`
           echo -en "\e[92m$fstype\033[0m, "
           if [[ $resblks -eq 0 ]]; then
