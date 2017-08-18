@@ -1,5 +1,3 @@
-prereq-check-single.sh
-.idea
-*.swp
-
 *.retry
+*.swp
+.idea
