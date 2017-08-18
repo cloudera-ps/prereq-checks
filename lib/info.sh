@@ -35,7 +35,7 @@ function print_cpu_and_ram() {
   local cpu=`grep -m1 "^model name" /proc/cpuinfo | cut -d' ' -f3- | sed -e 's/(R)//' -e 's/Core(TM) //' -e 's/CPU //'`
   print_label "CPUs" "`nproc`x $cpu"
   # Total installed memory (MemTotal and SwapTotal in /proc/meminfo)
-  print_label "RAM" "`free -h | awk '/Mem:/ {print $2}'`"
+  print_label "RAM" "$(awk '/^MemTotal:/ { printf "%.2f", $2/1024/1024 ; exit}' /proc/meminfo)G"
 }
 
 function print_disks() {
@@ -75,8 +75,7 @@ function print_disks() {
             echo -e "without \e[93mnoatime\033[0m option|"
           fi
           ;;
-        'ext3') ;&
-        'ext4')
+        'ext3'|'ext4')
           local resblks=`tune2fs -l $source | awk '/^Reserved block count:/ { print $4 }'`
           echo -en "\e[92m$fstype\033[0m, "
           if [[ $resblks -eq 0 ]]; then
