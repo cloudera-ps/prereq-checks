@@ -41,81 +41,81 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 BANNER="Cloudera Manager & CDH Prerequisites Checks v$VER"
 
 if [ `uname` = 'Darwin' ]; then
-  echo -e "\nThis tool runs on Linux only, not Mac OS."
-  exit 1
+    echo -e "\nThis tool runs on Linux only, not Mac OS."
+    exit 1
 fi
 
 function usage() {
-  SCRIPTNAME=$(basename $BASH_SOURCE)
-  echo "`tput bold`NAME:`tput sgr0`"
-  echo "  ${SCRIPTNAME} - ${BANNER}"
-  echo
-  echo "`tput bold`SYNOPSIS:`tput sgr0`"
-  echo "  ${SCRIPTNAME} [options]"
-  echo
-  echo "`tput bold`OPTIONS:`tput sgr0`"
-  echo "  -h, --help"
-  echo "    Show this message"
-  echo
-  echo "  -a, --addc `tput smul`domain`tput sgr0`"
-  echo "    Run tests against Active Directory Domain Controller"
-  echo
-  echo "  -p, --privilegetest `tput smul`ldapURI`tput sgr0` `tput smul`binddn`tput sgr0` `tput smul`searchbase`tput sgr0` `tput smul`bind_user_password`tput sgr0`"
-  echo "    Run tests against Active Directory delegated user for Direct to AD integration"
-  echo "    http://blog.cloudera.com/blog/2014/07/new-in-cloudera-manager-5-1-direct-active-directory-integration-for-kerberos-authentication/"
-  echo
-  exit 1
+    SCRIPTNAME=$(basename $BASH_SOURCE)
+    echo "`tput bold`NAME:`tput sgr0`"
+    echo "  ${SCRIPTNAME} - ${BANNER}"
+    echo
+    echo "`tput bold`SYNOPSIS:`tput sgr0`"
+    echo "  ${SCRIPTNAME} [options]"
+    echo
+    echo "`tput bold`OPTIONS:`tput sgr0`"
+    echo "  -h, --help"
+    echo "    Show this message"
+    echo
+    echo "  -a, --addc `tput smul`domain`tput sgr0`"
+    echo "    Run tests against Active Directory Domain Controller"
+    echo
+    echo "  -p, --privilegetest `tput smul`ldapURI`tput sgr0` `tput smul`binddn`tput sgr0` `tput smul`searchbase`tput sgr0` `tput smul`bind_user_password`tput sgr0`"
+    echo "    Run tests against Active Directory delegated user for Direct to AD integration"
+    echo "    http://blog.cloudera.com/blog/2014/07/new-in-cloudera-manager-5-1-direct-active-directory-integration-for-kerberos-authentication/"
+    echo
+    exit 1
 }
 
 if [[ $# -gt 0 ]]; then
-  KEY=$1
-  case ${KEY} in
-    -h|--help)
-      OPT_USAGE=true
-      ;;
-    -a|--addc)
-      OPT_DOMAIN=true
-      ARG_DOMAIN=$2
-      ;;
-    -p|--privilegetest)
-      OPT_USER=true
-      ARG_LDAPURI=$2
-      ARG_BINDDN=$3
-      ARG_SEARCHBASE=$4
-      ARG_USERPSWD=$5
-      ;;
-    *)
-      # Unknown option
-      OPT_USAGE=true
-      >&2 echo "Unknown option: ${KEY}"
-      ;;
-  esac
+    KEY=$1
+    case ${KEY} in
+        -h|--help)
+            OPT_USAGE=true
+            ;;
+        -a|--addc)
+            OPT_DOMAIN=true
+            ARG_DOMAIN=$2
+            ;;
+        -p|--privilegetest)
+            OPT_USER=true
+            ARG_LDAPURI=$2
+            ARG_BINDDN=$3
+            ARG_SEARCHBASE=$4
+            ARG_USERPSWD=$5
+            ;;
+        *)
+            # Unknown option
+            OPT_USAGE=true
+            >&2 echo "Unknown option: ${KEY}"
+            ;;
+    esac
 fi
 
 if [[ ${OPT_USAGE} ]]; then
-  usage
+    usage
 elif [[ ${OPT_DOMAIN} ]]; then
-  if [[ -z ${ARG_DOMAIN} ]]; then
-    >&2 echo "Missing domain argument. ex) AD.CLOUDERA.COM"
-    usage
-  else
-    check_addc ${ARG_DOMAIN}
-  fi
+    if [[ -z ${ARG_DOMAIN} ]]; then
+        >&2 echo "Missing domain argument. ex) AD.CLOUDERA.COM"
+        usage
+    else
+        check_addc ${ARG_DOMAIN}
+    fi
 elif [[ ${OPT_USER} ]]; then
-  if [[ -z ${ARG_LDAPURI} || -z ${ARG_BINDDN} || -z ${ARG_SEARCHBASE} || -z ${ARG_USERPSWD} ]]; then
-    >&2 echo "Options missing"
-    usage
-  else
-    check_privs ${ARG_LDAPURI} ${ARG_BINDDN} ${ARG_SEARCHBASE}
-  fi
+    if [[ -z ${ARG_LDAPURI} || -z ${ARG_BINDDN} || -z ${ARG_SEARCHBASE} || -z ${ARG_USERPSWD} ]]; then
+        >&2 echo "Options missing"
+        usage
+    else
+        check_privs ${ARG_LDAPURI} ${ARG_BINDDN} ${ARG_SEARCHBASE}
+    fi
 else
-  echo ${BANNER}
+    echo ${BANNER}
 
-  # Cache `rpm -qa` since it's slow and we call it several times
-  RPM_QA=`rpm -qa | sort`
+    # Cache `rpm -qa` since it's slow and we call it several times
+    RPM_QA=`rpm -qa | sort`
 
-  system_info
-  checks
-  echo
+    system_info
+    checks
+    echo
 fi
 
