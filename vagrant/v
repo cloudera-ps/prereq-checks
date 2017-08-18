@@ -1,0 +1,48 @@
+#!/bin/bash
+
+function usage() {
+    echo "OPTIONS:"
+    echo "  up"
+    echo "      Start VM"
+    echo
+    echo "  down"
+    echo "      Suspend VM"
+    echo
+    echo "  clean"
+    echo "      Re-init VM"
+    echo
+    echo "  -h, --help"
+    echo "      Show this message"
+    exit 1
+}
+
+if [ "$#" == "0" ]; then
+    usage
+    exit 1
+fi
+
+while (( "$#" )); do
+    KEY=$1
+    case $KEY in
+        up)
+            ln -f ../../prereq-check-single.sh
+            vagrant up
+            echo "Connecting to VM (press CTRL-d to exit)..."
+            vagrant ssh
+            ;;
+        down)
+            vagrant suspend
+            ;;
+        clean)
+            vagrant destroy 
+            ;;
+        -h|--help)
+            usage
+            ;;
+        *)
+            >&2 echo "Unknown option: ${KEY}"
+            usage
+            ;;
+   esac
+   shift
+done
