@@ -33,34 +33,37 @@ VER=1.3.0
 # Do not remove the place marker "Include libs (START|STOP)" comments. They are
 # place markers for generating the single file script.
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+# shellcheck source=lib/utils.sh
 . "$DIR/lib/utils.sh"
+# shellcheck source=lib/checks.sh
 . "$DIR/lib/checks.sh"
+# shellcheck source=lib/info.sh
 . "$DIR/lib/info.sh"
 # Include libs (STOP)  --------------------------------------------------------
 
 BANNER="Cloudera Manager & CDH Prerequisites Checks v$VER"
 
-if [ `uname` = 'Darwin' ]; then
+if [ "$(uname)" = 'Darwin' ]; then
     echo -e "\nThis tool runs on Linux only, not Mac OS."
     exit 1
 fi
 
 function usage() {
-    SCRIPTNAME=$(basename $BASH_SOURCE)
-    echo "`tput bold`NAME:`tput sgr0`"
+    SCRIPTNAME=$(basename "${BASH_SOURCE[0]}")
+    echo "$(tput bold)NAME:$(tput sgr0)"
     echo "  ${SCRIPTNAME} - ${BANNER}"
     echo
-    echo "`tput bold`SYNOPSIS:`tput sgr0`"
+    echo "$(tput bold)SYNOPSIS:$(tput sgr0)"
     echo "  ${SCRIPTNAME} [options]"
     echo
-    echo "`tput bold`OPTIONS:`tput sgr0`"
+    echo "$(tput bold)OPTIONS:$(tput sgr0)"
     echo "  -h, --help"
     echo "    Show this message"
     echo
-    echo "  -a, --addc `tput smul`domain`tput sgr0`"
+    echo "  -a, --addc $(tput smul)domain$(tput sgr0)"
     echo "    Run tests against Active Directory Domain Controller"
     echo
-    echo "  -p, --privilegetest `tput smul`ldapURI`tput sgr0` `tput smul`binddn`tput sgr0` `tput smul`searchbase`tput sgr0` `tput smul`bind_user_password`tput sgr0`"
+    echo "  -p, --privilegetest $(tput smul)ldapURI$(tput sgr0) $(tput smul)binddn$(tput sgr0) $(tput smul)searchbase$(tput sgr0) $(tput smul)bind_user_password$(tput sgr0)"
     echo "    Run tests against Active Directory delegated user for Direct to AD integration"
     echo "    http://blog.cloudera.com/blog/2014/07/new-in-cloudera-manager-5-1-direct-active-directory-integration-for-kerberos-authentication/"
     echo
@@ -99,23 +102,23 @@ elif [[ ${OPT_DOMAIN} ]]; then
         >&2 echo "Missing domain argument. ex) AD.CLOUDERA.COM"
         usage
     else
-        check_addc ${ARG_DOMAIN}
+        check_addc "${ARG_DOMAIN}"
     fi
 elif [[ ${OPT_USER} ]]; then
     if [[ -z ${ARG_LDAPURI} || -z ${ARG_BINDDN} || -z ${ARG_SEARCHBASE} || -z ${ARG_USERPSWD} ]]; then
         >&2 echo "Options missing"
         usage
     else
-        check_privs ${ARG_LDAPURI} ${ARG_BINDDN} ${ARG_SEARCHBASE}
+        check_privs "${ARG_LDAPURI}" "${ARG_BINDDN}" "${ARG_SEARCHBASE}"
     fi
 else
-    echo ${BANNER}
+    echo "${BANNER}"
 
     # Cache `rpm -qa` since it's slow and we call it several times
-    RPM_QA=`rpm -qa | sort`
+    export RPM_QA
+    RPM_QA=$(rpm -qa | sort)
 
     system_info
     checks
     echo
 fi
-
