@@ -9,7 +9,7 @@ script:
 - shellcheck prereq-check-dev.sh -x
 - shellcheck lib/info.sh
 - shellcheck lib/utils.sh
-# - shellcheck lib/checks.sh
+- shellcheck lib/checks.sh
 # - shellcheck lib/security/security-checks.sh
 - ./build.sh && ./prereq-check.sh
 deploy:

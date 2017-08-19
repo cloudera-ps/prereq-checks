@@ -63,8 +63,8 @@ function check_java() {
     for candidate_regex in "${JAVA_HOME_CANDIDATES[@]}"; do
         # shellcheck disable=SC2045
         for candidate in $(ls -rvd "${candidate_regex}*" 2>/dev/null); do
-            if [ -x ${candidate}/bin/java ]; then
-                VERSION_STRING=`${candidate}/bin/java -version 2>&1`
+            if [ -x "$candidate/bin/java" ]; then
+                VERSION_STRING=$("$candidate"/bin/java -version 2>&1)
                 RE_JAVA_GOOD='java[[:space:]]version[[:space:]]\"1\.([0-9])\.0_([0-9][0-9]*)\"'
                 RE_JAVA_BAD='openjdk[[:space:]]version[[:space:]]\"1\.[0-9]\.'
                 if [[ $VERSION_STRING =~ $RE_JAVA_GOOD ]]; then
@@ -122,7 +122,7 @@ function check_os() (
                 3) state "System: tuned is not running" 0;;
                 *) state "System: tuned is not installed" 0;;
             esac
-            if [ "`systemctl is-enabled tuned 2>/dev/null`" == "enabled" ]; then
+            if [ "$(systemctl is-enabled tuned 2>/dev/null)" == "enabled" ]; then
                 state "System: tuned auto-starts on boot" 1
             else
                 state "System: tuned does not auto-start on boot" 0
@@ -138,12 +138,12 @@ function check_os() (
         # http://www.cloudera.com/content/www/en-us/documentation/enterprise/latest/topics/cdh_admin_performance.html#xd_583c10bfdbd326ba-7dae4aa6-147c30d0933--7fd5__section_hw3_sdf_jq
         local file
         file=$(find /sys/kernel/mm/ -type d -name '*transparent_hugepage')/defrag
-        if [ -f $file ]; then
+        if [ -f "$file" ]; then
             local msg="System: $file should be disabled"
-            if fgrep -q "[never]" $file; then
+            if fgrep -q "[never]" "$file"; then
                 state "$msg" 0
             else
-                state "$msg. Actual: `cat $file | awk '{print $1}' | sed -e 's/\[//' -e 's/\]//'`" 1
+                state "$msg. Actual: $(awk '{print $1}' "$file" | sed -e 's/\[//' -e 's/\]//')" 1
             fi
         else
             state "System: /sys/kernel/mm/*transparent_hugepage not found. Check skipped" 2
@@ -153,9 +153,9 @@ function check_os() (
     function check_selinux() {
         # http://www.cloudera.com/content/www/en-us/documentation/enterprise/latest/topics/install_cdh_disable_selinux.html
         local msg="System: SELinux should be disabled"
-        case `getenforce` in
+        case $(getenforce) in
             Disabled|Permissive) state "$msg" 0;;
-            *)                   state "$msg. Actual: `getenforce`" 1;;
+            *)                   state "$msg. Actual: $(getenforce)" 1;;
         esac
     }
 
@@ -164,10 +164,10 @@ function check_os() (
     # https://community.cloudera.com/t5/Cloudera-Manager-Installation/Should-Cloudera-NTP-use-Chrony-or-NTPD/td-p/55986
     function check_time_sync() (
         function is_ntp_in_sync() {
-            if [ "$(ntpstat | grep "synchronised to NTP server" | wc -l)" -eq 1 ]; then
+            if [ "$(ntpstat | grep -c "synchronised to NTP server")" -eq 1 ]; then
                 state "System: ntpd clock synced" 0
             else
-                state "System: ntpd clock NOT synced. Check `ntpstat`" 1
+                state "System: ntpd clock NOT synced. Check 'ntpstat'" 1
             fi
         }
 
@@ -240,6 +240,7 @@ function check_database() {
     local mysql_com
 
     mysql_ent=$(rpm -q --queryformat='%{VERSION}' mysql-commercial-server)
+    # shellcheck disable=SC2181
     if [[ $? -eq 0 ]]; then
         mysql_rpm=$(rpm -q mysql-commercial-server)
         [[ $mysql_ent =~ $VERSION_PATTERN ]]
@@ -247,6 +248,7 @@ function check_database() {
     fi
 
     mysql_com=$(rpm -q --queryformat='%{VERSION}' mysql-community-server)
+    # shellcheck disable=SC2181
     if [[ $? -eq 0 ]]; then
         mysql_rpm=$(rpm -q mysql-community-server)
         [[ $mysql_com =~ $VERSION_PATTERN ]]
@@ -281,12 +283,12 @@ function check_jdbc_connector() {
 function check_network() {
     local entries
     check_hostname
-    entries=$(cat /etc/hosts | grep -Ev "^#|^ *$" | wc -l)
+    entries=$(grep -cEv "^#|^ *$" /etc/hosts)
     local msg="Network: /etc/hosts entries should be <= 2 (use DNS). Actual: $entries"
     if [ "$entries" -le 2 ]; then
         local rc=0
-        while read line; do
-            entry=`echo $line | grep -Ev "^#|^ *$"`
+        while read -r line; do
+            entry=$(echo "$line" | grep -Ev "^#|^ *$")
             if [ ! "$entry" = "" ]; then
                 set -- "$(echo "$line" | awk '{ print $1, $2 }')"
                 if [ "$1" = "127.0.0.1" ] || [ "$1" = "::1" ] && [ "$2" = "localhost" ]; then
@@ -322,7 +324,8 @@ function check_network() {
         # If you’re running Red Hat SSSD, you’ll need to modify the nscd configuration;
         # with SSSD enabled, don’t use nscd to cache passwd, group, or netgroup information.
         # http://blog.cloudera.com/blog/2015/01/how-to-deploy-apache-hadoop-clusters-like-a-boss/
-        for cached in `awk '/^[^#]*enable-cache.*yes/ { print $2 }' /etc/nscd.conf`; do
+        # shellcheck disable=SC2013
+        for cached in $(awk '/^[^#]*enable-cache.*yes/ { print $2 }' /etc/nscd.conf); do
             case $cached in
                 'passwd'|'group'|'netgroup')
                     state "Network: nscd should not cache $cached with sssd enabled" 1
@@ -331,7 +334,8 @@ function check_network() {
                     ;;
             esac
         done
-        for non_cached in `awk '/^[^#]*enable-cache.*no/ { print $2 }' /etc/nscd.conf`; do
+        # shellcheck disable=SC2013
+        for non_cached in $(awk '/^[^#]*enable-cache.*no/ { print $2 }' /etc/nscd.conf); do
             case $non_cached in
                 'passwd'|'group'|'netgroup')
                     state "Network: nscd shoud not cache $non_cached with sssd enabled" 0
@@ -346,10 +350,10 @@ function check_network() {
     # CDH requires IPv4. IPv6 is not supported and must be disabled.
     # https://www.cloudera.com/documentation/enterprise/release-notes/topics/rn_consolidated_pcm.html
     local msg="Network: IPv6 is not supported and must be disabled"
-    if [[ -z `ip addr show | grep inet6` ]]; then
-        state "${msg}" 0
-    else
+    if ip addr show | grep -q inet6; then
         state "${msg}" 1
+    else
+        state "${msg}" 0
     fi
 
     # Consistency check on forward (hostname to ip address) and
@@ -359,8 +363,8 @@ function check_network() {
     local fwd_lookup
     local rvs_lookup
     fqdn=$(hostname -f)
-    fwd_lookup=$(dig -4 $fqdn A +short)
-    rvs_lookup=$(dig -4 -x $fwd_lookup PTR +short)
+    fwd_lookup=$(dig -4 "$fqdn" A +short)
+    rvs_lookup=$(dig -4 -x "$fwd_lookup" PTR +short)
     if [[ "${fqdn}." = "$rvs_lookup" ]]; then
         state "Network: Consistent name resolution of $fqdn" 0
     else
@@ -380,7 +384,7 @@ function check_hostname() {
     # entire hostname (including delimiting dots but not a trailing dot) has a
     # maximum of 253 ASCII characters.
     local VALID_FQDN='^([a-z]([a-z0-9\-]{0,61}[a-z0-9])?\.)+[a-z]([a-z0-9\-]{0,61}[a-z0-9])?$'
-    echo $fqdn | grep -Eiq $VALID_FQDN
+    echo "$fqdn" | grep -Eiq "$VALID_FQDN"
     local valid_format=$?
     if [[ $valid_format -eq 0 && ${#fqdn} -le 253 ]]; then
         if [[ ${#short} -gt 15 ]]; then
@@ -391,7 +395,7 @@ function check_hostname() {
             # add the node to domain. Won't work well with Kerberos/AD.
             state "Network: Computer name should be <= 15 characters (NetBIOS restriction)" 1
         else
-            if [[ $(echo "$fqdn" | sed -e 's/\..*//') = "$short" ]]; then
+            if [[ "${fqdn//\.*/}" = "$short" ]]; then
                 if [[ $(echo "$fqdn" | grep '[A-Z]') = "" ]]; then
                     state "Network: Hostname looks good (FQDN, no uppercase letters)" 0
                 else
