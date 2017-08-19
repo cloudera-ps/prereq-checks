@@ -1,9 +1,3 @@
-SYSINFO_TITLE_WIDTH=14
-
-function print_label() {
-    printf "%-${SYSINFO_TITLE_WIDTH}s %s\n" "$1:" "$2"
-}
-
 function print_time() {
     local timezone=`date | awk '{print $(NF-1)}'`
     timezone=${timezone:-UTC}
