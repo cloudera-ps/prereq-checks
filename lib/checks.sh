@@ -1,3 +1,5 @@
+SERVICE_STATUS=()
+
 function check_java() {
     # The following candidate list is from CM agent:
     # Starship/cmf/agents/cmf/service/common/cloudera-config.sh
@@ -96,106 +98,139 @@ function check_java() {
     done
 }
 
-function check_os() {
-    # http://www.cloudera.com/content/www/en-us/documentation/enterprise/latest/topics/cdh_admin_performance.html#xd_583c10bfdbd326ba-7dae4aa6-147c30d0933--7fd5__section_xpq_sdf_jq
-    local swappiness=`cat /proc/sys/vm/swappiness`
-    local msg="System: /proc/sys/vm/swappiness should be 1"
-    if [ "$swappiness" -eq 1 ]; then
-        state "$msg" 0
-    else
-        state "$msg. Actual: $swappiness" 1
-    fi
-
-    # "tuned" service should be disabled on RHEL/CentOS 7.x
-    # https://www.cloudera.com/documentation/enterprise/latest/topics/cdh_admin_performance.html#xd_583c10bfdbd326ba-7dae4aa6-147c30d0933--7fd5__disable-tuned
-    if is_centos_rhel_7; then
-        systemctl status tuned &>/dev/null
-        case $? in
-            0) state "System: tuned is running" 1;;
-            3) state "System: tuned is not running" 0;;
-            *) state "System: tuned is not installed" 0;;
-        esac
-        if [ "`systemctl is-enabled tuned 2>/dev/null`" == "enabled" ]; then
-            state "System: tuned auto-starts on boot" 1
-        else
-            state "System: tuned does not auto-start on boot" 0
-        fi
-    fi
-
-    # Older RHEL/CentOS versions use [1], while newer versions (e.g. 7.1) and
-    # Ubuntu/Debian use [2]:
-    #   1: /sys/kernel/mm/redhat_transparent_hugepage/defrag
-    #   2: /sys/kernel/mm/transparent_hugepage/defrag.
-    # http://www.cloudera.com/content/www/en-us/documentation/enterprise/latest/topics/cdh_admin_performance.html#xd_583c10bfdbd326ba-7dae4aa6-147c30d0933--7fd5__section_hw3_sdf_jq
-    local file=`find /sys/kernel/mm/ -type d -name '*transparent_hugepage'`/defrag
-    if [ -f $file ]; then
-        local msg="System: $file should be disabled"
-        if fgrep -q "[never]" $file; then
+function check_os() (
+    function check_swappiness() {
+        # http://www.cloudera.com/content/www/en-us/documentation/enterprise/latest/topics/cdh_admin_performance.html#xd_583c10bfdbd326ba-7dae4aa6-147c30d0933--7fd5__section_xpq_sdf_jq
+        local swappiness=`cat /proc/sys/vm/swappiness`
+        local msg="System: /proc/sys/vm/swappiness should be 1"
+        if [ "$swappiness" -eq 1 ]; then
             state "$msg" 0
         else
-            state "$msg. Actual: `cat $file | awk '{print $1}' | sed -e 's/\[//' -e 's/\]//'`" 1
+            state "$msg. Actual: $swappiness" 1
         fi
-    else
-        state "System: /sys/kernel/mm/*transparent_hugepage not found. Check skipped" 2
-    fi
+    }
 
-    # http://www.cloudera.com/content/www/en-us/documentation/enterprise/latest/topics/install_cdh_disable_selinux.html
-    local msg="System: SELinux should be disabled"
-    case `getenforce` in
-        Disabled|Permissive) state "$msg" 0;;
-        *)                   state "$msg. Actual: `getenforce`" 1;;
-    esac
+    function check_tuned() {
+        # "tuned" service should be disabled on RHEL/CentOS 7.x
+        # https://www.cloudera.com/documentation/enterprise/latest/topics/cdh_admin_performance.html#xd_583c10bfdbd326ba-7dae4aa6-147c30d0933--7fd5__disable-tuned
+        if is_centos_rhel_7; then
+            systemctl status tuned &>/dev/null
+            case $? in
+                0) state "System: tuned is running" 1;;
+                3) state "System: tuned is not running" 0;;
+                *) state "System: tuned is not installed" 0;;
+            esac
+            if [ "`systemctl is-enabled tuned 2>/dev/null`" == "enabled" ]; then
+                state "System: tuned auto-starts on boot" 1
+            else
+                state "System: tuned does not auto-start on boot" 0
+            fi
+        fi
+    }
 
-    if is_centos_rhel_7; then
-        ntpd_used="$(_validate_service_state 'System' 'ntpd')"
-        if [ $ntpd_used -eq 0 ]; then
+    function check_thp() {
+        # Older RHEL/CentOS versions use [1], while newer versions (e.g. 7.1) and
+        # Ubuntu/Debian use [2]:
+        #   1: /sys/kernel/mm/redhat_transparent_hugepage/defrag
+        #   2: /sys/kernel/mm/transparent_hugepage/defrag.
+        # http://www.cloudera.com/content/www/en-us/documentation/enterprise/latest/topics/cdh_admin_performance.html#xd_583c10bfdbd326ba-7dae4aa6-147c30d0933--7fd5__section_hw3_sdf_jq
+        local file=`find /sys/kernel/mm/ -type d -name '*transparent_hugepage'`/defrag
+        if [ -f $file ]; then
+            local msg="System: $file should be disabled"
+            if fgrep -q "[never]" $file; then
+                state "$msg" 0
+            else
+                state "$msg. Actual: `cat $file | awk '{print $1}' | sed -e 's/\[//' -e 's/\]//'`" 1
+            fi
+        else
+            state "System: /sys/kernel/mm/*transparent_hugepage not found. Check skipped" 2
+        fi
+    }
+
+    function check_selinux() {
+        # http://www.cloudera.com/content/www/en-us/documentation/enterprise/latest/topics/install_cdh_disable_selinux.html
+        local msg="System: SELinux should be disabled"
+        case `getenforce` in
+            Disabled|Permissive) state "$msg" 0;;
+            *)                   state "$msg. Actual: `getenforce`" 1;;
+        esac
+    }
+
+    function check_time_sync() (
+        function is_ntp_in_sync() {
+            if [ `ntpstat | grep "synchronised to NTP server" | wc -l` -eq 1 ]; then
+                state "System: Clock is synchronized against the NTPD server" 0
+            else
+                state "System: NTP is not synchronized. Check ntpstat to troubleshoot" 1
+            fi
+        }
+
+        if is_centos_rhel_7; then
+            ntpd_used="$(_validate_service_state 'System' 'ntpd')"
+            if [ $ntpd_used -eq 0 ]; then
+                _check_service_is_running 'System' 'ntpd'
+                is_ntp_in_sync
+            else
+                # TODO Add check to see if chrony is actually synchronizing the clock. Use the command "chronyc tracking"
+                _check_service_is_running 'System' 'chronyd'
+            fi
+        else
             _check_service_is_running 'System' 'ntpd'
             is_ntp_in_sync
-        else
-            # Add check to see if chrony is actually synchronizing the clock. Use the command "chronyc tracking"
-            _check_service_is_running 'System' 'chronyd'
         fi
-    else
-        _check_service_is_running 'System' 'ntpd'
-        is_ntp_in_sync
-    fi
-
-    local packages_32bit=`rpm -qa --queryformat '\t%{NAME} %{ARCH}\n' | grep 'i[6543]86' | cut -d' ' -f1`
-    if [ "$packages_32bit" ]; then
-        state "System: Found the following 32bit packages installed:\n$packages_32bit" 1
-    else
-        state "System: Only 64bit packages should be installed" 0
-    fi
-
-    local UNNECESSARY_SERVICES=(
-        'bluetooth'
-        'cups'
-        'iptables'
-        'ip6tables'
-        'postfix'
     )
-    for svc in ${UNNECESSARY_SERVICES[@]}; do
-        _check_service_is_running 'DUMMY' ${svc} > /dev/null
-        local svc_running=${SERVICE_STATUS['running']}
-        if $svc_running; then
-            state "System: $svc is running (not recommended)" 2
-        else
-            state "System: $svc is not running (recommended)" 0
-        fi
-    done
 
-    local noexec=false
-    for option in `findmnt -lno options --target /tmp | tr ',' ' '`; do
-        if [[ $option = 'noexec' ]]; then
-            noexec=true
+    function check_32bit_packages() {
+        local packages_32bit=`rpm -qa --queryformat '\t%{NAME} %{ARCH}\n' | grep 'i[6543]86' | cut -d' ' -f1`
+        if [ "$packages_32bit" ]; then
+            state "System: Found the following 32bit packages installed:\n$packages_32bit" 1
+        else
+            state "System: Only 64bit packages should be installed" 0
         fi
-    done
-    if $noexec; then
-        state "System: /tmp mounted with noexec fails for CM versions older than 5.8.4, 5.9.2, and 5.10.0" 2
-    else
-        state "System: /tmp mounted with noexec fails for CM versions older than 5.8.4, 5.9.2, and 5.10.0" 0
-    fi
-}
+    }
+
+    function check_unneeded_services() {
+        local UNNECESSARY_SERVICES=(
+            'bluetooth'
+            'cups'
+            'iptables'
+            'ip6tables'
+            'postfix'
+        )
+        for svc in ${UNNECESSARY_SERVICES[@]}; do
+            _check_service_is_running 'DUMMY' ${svc} > /dev/null
+            local svc_running=${SERVICE_STATUS['running']}
+            if $svc_running; then
+                state "System: $svc is running (not recommended)" 2
+            else
+                state "System: $svc is not running (recommended)" 0
+            fi
+        done
+    }
+
+    function check_tmp_noexec() {
+        local noexec=false
+        for option in `findmnt -lno options --target /tmp | tr ',' ' '`; do
+            if [[ $option = 'noexec' ]]; then
+                noexec=true
+            fi
+        done
+        if $noexec; then
+            state "System: /tmp mounted with noexec fails for CM versions older than 5.8.4, 5.9.2, and 5.10.0" 2
+        else
+            state "System: /tmp mounted with noexec fails for CM versions older than 5.8.4, 5.9.2, and 5.10.0" 0
+        fi
+    }
+
+    check_swappiness
+    check_tuned
+    check_thp
+    check_selinux
+    check_time_sync
+    check_32bit_packages
+    check_unneeded_services
+    check_tmp_noexec
+)
 
 function check_database() {
     local VERSION_PATTERN='([0-9][0-9]*\.[0-9][0-9]*)\.[0-9][0-9]*'
@@ -238,8 +273,6 @@ function check_jdbc_connector() {
         state "Database: MySQL JDBC Driver is not installed" 2
     fi
 }
-
-SERVICE_STATUS=()
 
 function check_network() {
     check_hostname
@@ -378,23 +411,6 @@ function check_hostname() {
         # - Do not use aliases, either in /etc/hosts or in configuring DNS
         # https://www.cloudera.com/documentation/enterprise/latest/topics/cdh_ig_networknames_configure.html
         state "Network: Malformed hostname is configured (consult RFC)" 1
-    fi
-}
-
-function is_ntp_in_sync() {
-    if [ `ntpstat | grep "synchronised to NTP server" | wc -l` -eq 1 ]; then
-        state "System: Clock is synchronized against the NTPD server" 0
-    else
-        state "System: NTP is not synchronized. Check ntpstat to troubleshoot" 1
-    fi
-}
-
-function check_only_64bit_packages_installed() {
-    local packages_32bit=`rpm -qa --queryformat '\t%{NAME} %{ARCH}\n' | grep 'i[6543]86' | cut -d' ' -f1`
-    if [ "$packages_32bit" ]; then
-        state "Only 64bit packages: 32bit packages are installed:\n$packages_32bit" 1
-    else
-        state "Only 64bit packages: Only 64bit packages are installed" 0
     fi
 }
 
