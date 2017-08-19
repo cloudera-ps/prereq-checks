@@ -1,5 +1,7 @@
 # CM & CDH Prerequisites Checker
 
+[![Build Status](https://travis-ci.org/cloudera-ps/prereq-checks.svg?branch=master)](https://travis-ci.org/cloudera-ps/prereq-checks)
+
 Bash script for displaying relevant system information and performing
 prerequisite checks for Cloudera Manager & CDH installation.
 

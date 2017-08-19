@@ -1,0 +1,14 @@
+language: bash
+addons:
+  apt:
+    sources:
+    - debian-sid    # Grab ShellCheck from the Debian repo
+    packages:
+    - shellcheck
+script:
+    - shellcheck prereq-check-dev.sh -x
+    - shellcheck lib/info.sh
+    - shellcheck lib/utils.sh
+    # - shellcheck lib/checks.sh
+    # - shellcheck lib/security/security-checks.sh
+    - ./prereq-check.sh
