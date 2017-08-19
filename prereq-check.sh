@@ -29,6 +29,11 @@
 
 VER=1.3.0
 
+if [ "$(uname)" = 'Darwin' ]; then
+    echo -e "\nThis tool runs on Linux only, not Mac OS."
+    exit 1
+fi
+
 # Include libs (START) --------------------------------------------------------
 # Do not remove the place marker "Include libs (START|STOP)" comments. They are
 # place markers for generating the single file script.
@@ -39,11 +44,6 @@ done
 # Include libs (STOP)  --------------------------------------------------------
 
 BANNER="Cloudera Manager & CDH Prerequisites Checks v$VER"
-
-if [ "$(uname)" = 'Darwin' ]; then
-    echo -e "\nThis tool runs on Linux only, not Mac OS."
-    exit 1
-fi
 
 function usage() {
     SCRIPTNAME=$(basename "${BASH_SOURCE[0]}")
