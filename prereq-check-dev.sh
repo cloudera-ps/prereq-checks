@@ -27,7 +27,7 @@
 # You are responsible for reviewing and testing any scripts you run thoroughly
 # before use in any non-testing environment.
 
-VER=1.4.1
+VER=1.4.2
 
 if [ "$(uname)" = 'Darwin' ]; then
     echo -e "\nThis tool runs on Linux only, not Mac OS."
@@ -44,7 +44,8 @@ trap cleanup EXIT
 # place markers for generating the single file script.
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 for lib in $DIR/lib/{security/,}*.sh; do
-    source $lib
+    # shellcheck disable=SC1090
+    source "$lib"
 done
 # Include libs (STOP)  --------------------------------------------------------
 

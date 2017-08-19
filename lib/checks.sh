@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 function check_java() {
     # The following candidate list is from CM agent:
     # Starship/cmf/agents/cmf/service/common/cloudera-config.sh
@@ -58,8 +60,9 @@ function check_java() {
     # JDK 7 minimum required version is JDK 1.7u55
     # JDK 8 minimum required version is JDK 1.8u31
     #   excluldes JDK 1.8u40, JDK 1.8u45, and JDK 1.8u60
-    for candidate_regex in ${JAVA_HOME_CANDIDATES[@]}; do
-        for candidate in `ls -rvd ${candidate_regex}* 2>/dev/null`; do
+    for candidate_regex in "${JAVA_HOME_CANDIDATES[@]}"; do
+        # shellcheck disable=SC2045
+        for candidate in $(ls -rvd "${candidate_regex}*" 2>/dev/null); do
             if [ -x ${candidate}/bin/java ]; then
                 VERSION_STRING=`${candidate}/bin/java -version 2>&1`
                 RE_JAVA_GOOD='java[[:space:]]version[[:space:]]\"1\.([0-9])\.0_([0-9][0-9]*)\"'
@@ -86,7 +89,7 @@ function check_java() {
                     else
                         state "Java: Unsupported Oracle Java: ${candidate}/bin/java" 0
                     fi
-                elif [[ $VERSION_STRING =~ $_RE_JAVA_BAD ]]; then
+                elif [[ $VERSION_STRING =~ $RE_JAVA_BAD ]]; then
                     state "Java: Unsupported OpenJDK: ${candidate}/bin/java" 1
                 else
                     state "Java: Unsupported Unknown: ${candidate}/bin/java" 1
@@ -99,8 +102,9 @@ function check_java() {
 function check_os() (
     function check_swappiness() {
         # http://www.cloudera.com/content/www/en-us/documentation/enterprise/latest/topics/cdh_admin_performance.html#xd_583c10bfdbd326ba-7dae4aa6-147c30d0933--7fd5__section_xpq_sdf_jq
-        local swappiness=`cat /proc/sys/vm/swappiness`
+        local swappiness
         local msg="System: /proc/sys/vm/swappiness should be 1"
+        swappiness=$(cat /proc/sys/vm/swappiness)
         if [ "$swappiness" -eq 1 ]; then
             state "$msg" 0
         else
@@ -132,7 +136,8 @@ function check_os() (
         #   1: /sys/kernel/mm/redhat_transparent_hugepage/defrag
         #   2: /sys/kernel/mm/transparent_hugepage/defrag.
         # http://www.cloudera.com/content/www/en-us/documentation/enterprise/latest/topics/cdh_admin_performance.html#xd_583c10bfdbd326ba-7dae4aa6-147c30d0933--7fd5__section_hw3_sdf_jq
-        local file=`find /sys/kernel/mm/ -type d -name '*transparent_hugepage'`/defrag
+        local file
+        file=$(find /sys/kernel/mm/ -type d -name '*transparent_hugepage')/defrag
         if [ -f $file ]; then
             local msg="System: $file should be disabled"
             if fgrep -q "[never]" $file; then
@@ -159,7 +164,7 @@ function check_os() (
     # https://community.cloudera.com/t5/Cloudera-Manager-Installation/Should-Cloudera-NTP-use-Chrony-or-NTPD/td-p/55986
     function check_time_sync() (
         function is_ntp_in_sync() {
-            if [ `ntpstat | grep "synchronised to NTP server" | wc -l` -eq 1 ]; then
+            if [ "$(ntpstat | grep "synchronised to NTP server" | wc -l)" -eq 1 ]; then
                 state "System: ntpd clock synced" 0
             else
                 state "System: ntpd clock NOT synced. Check `ntpstat`" 1
@@ -182,7 +187,8 @@ function check_os() (
     )
 
     function check_32bit_packages() {
-        local packages_32bit=`rpm -qa --queryformat '\t%{NAME} %{ARCH}\n' | grep 'i[6543]86' | cut -d' ' -f1`
+        local packages_32bit
+        packages_32bit=$(rpm -qa --queryformat '\t%{NAME} %{ARCH}\n' | grep 'i[6543]86' | cut -d' ' -f1)
         if [ "$packages_32bit" ]; then
             state "System: Found the following 32bit packages installed:\n$packages_32bit" 1
         else
@@ -197,15 +203,15 @@ function check_os() (
             'ip6tables'
             'postfix'
         )
-        for service_name in ${UNNECESSARY_SERVICES[@]}; do
+        for service_name in "${UNNECESSARY_SERVICES[@]}"; do
             _check_service_is_not_running 'System' "$service_name" 2
         done
     }
 
     function check_tmp_noexec() {
         local noexec=false
-        for option in `findmnt -lno options --target /tmp | tr ',' ' '`; do
-            if [[ $option = 'noexec' ]]; then
+        for option in $(findmnt -lno options --target /tmp | tr ',' ' '); do
+            if [[ "$option" = 'noexec' ]]; then
                 noexec=true
             fi
         done
@@ -230,24 +236,28 @@ function check_database() {
     local VERSION_PATTERN='([0-9][0-9]*\.[0-9][0-9]*)\.[0-9][0-9]*'
     local mysql_ver=''
     local mysql_rpm=''
-    local mysql_ent=`rpm -q --queryformat='%{VERSION}' mysql-commercial-server`
+    local mysql_ent
+    local mysql_com
+
+    mysql_ent=$(rpm -q --queryformat='%{VERSION}' mysql-commercial-server)
     if [[ $? -eq 0 ]]; then
-        mysql_rpm=`rpm -q mysql-commercial-server`
+        mysql_rpm=$(rpm -q mysql-commercial-server)
         [[ $mysql_ent =~ $VERSION_PATTERN ]]
         mysql_ver=${BASH_REMATCH[1]}
     fi
-    local mysql_com=`rpm -q --queryformat='%{VERSION}' mysql-community-server`
+
+    mysql_com=$(rpm -q --queryformat='%{VERSION}' mysql-community-server)
     if [[ $? -eq 0 ]]; then
-        mysql_rpm=`rpm -q mysql-community-server`
+        mysql_rpm=$(rpm -q mysql-community-server)
         [[ $mysql_com =~ $VERSION_PATTERN ]]
         mysql_ver=${BASH_REMATCH[1]}
     fi
-    if [[ -z $mysql_ver ]]; then
+    if [[ -z "$mysql_ver" ]]; then
         state "Database: MySQL server not installed, skipping version check" 2
         return
     fi
 
-    case $mysql_ver in
+    case "$mysql_ver" in
         '5.1'|'5.5'|'5.6'|'5.7')
             state "Database: Supported MySQL server installed. $mysql_rpm" 0
             ;;
@@ -269,17 +279,17 @@ function check_jdbc_connector() {
 }
 
 function check_network() {
+    local entries
     check_hostname
-
-    local entries=`cat /etc/hosts | grep -Ev "^#|^ *$" | wc -l`
+    entries=$(cat /etc/hosts | grep -Ev "^#|^ *$" | wc -l)
     local msg="Network: /etc/hosts entries should be <= 2 (use DNS). Actual: $entries"
     if [ "$entries" -le 2 ]; then
         local rc=0
         while read line; do
             entry=`echo $line | grep -Ev "^#|^ *$"`
             if [ ! "$entry" = "" ]; then
-                set -- `echo $line | awk '{ print $1, $2 }'`
-                if [ "$1" = "127.0.0.1" -o "$1" = "::1" ] && [ "$2" = "localhost" ]; then
+                set -- "$(echo "$line" | awk '{ print $1, $2 }')"
+                if [ "$1" = "127.0.0.1" ] || [ "$1" = "::1" ] && [ "$2" = "localhost" ]; then
                     :
                 else
                     rc=1
@@ -345,10 +355,13 @@ function check_network() {
     # Consistency check on forward (hostname to ip address) and
     # reverse (ip address to hostname) resolutions.
     # Note that an additional `.' in the PTR ANSWER SECTION.
-    local fqdn=`hostname -f`
-    local fwd_lookup=`dig -4 $fqdn A +short`
-    local rvs_lookup=`dig -4 -x $fwd_lookup PTR +short`
-    if [[ "${fqdn}." = $rvs_lookup ]]; then
+    local fqdn
+    local fwd_lookup
+    local rvs_lookup
+    fqdn=$(hostname -f)
+    fwd_lookup=$(dig -4 $fqdn A +short)
+    rvs_lookup=$(dig -4 -x $fwd_lookup PTR +short)
+    if [[ "${fqdn}." = "$rvs_lookup" ]]; then
         state "Network: Consistent name resolution of $fqdn" 0
     else
         state "Network: Inconsistent name resolution of $fqdn. Check DNS configuration" 1
@@ -356,8 +369,10 @@ function check_network() {
 }
 
 function check_hostname() {
-    local fqdn=`hostname -f`
-    local short=`hostname -s`
+    local fqdn
+    local short
+    fqdn=$(hostname -f)
+    short=$(hostname -s)
 
     # https://en.wikipedia.org/wiki/Hostname
     # Hostnames are composed of series of labels concatenated with dots, as are
@@ -376,8 +391,8 @@ function check_hostname() {
             # add the node to domain. Won't work well with Kerberos/AD.
             state "Network: Computer name should be <= 15 characters (NetBIOS restriction)" 1
         else
-            if [[ `echo $fqdn | sed -e 's/\..*//'` = $short ]]; then
-                if [[ `echo $fqdn | grep '[A-Z]'` = "" ]]; then
+            if [[ $(echo "$fqdn" | sed -e 's/\..*//') = "$short" ]]; then
+                if [[ $(echo "$fqdn" | grep '[A-Z]') = "" ]]; then
                     state "Network: Hostname looks good (FQDN, no uppercase letters)" 0
                 else
                     # Cluster hosts must have a working network name resolution system and

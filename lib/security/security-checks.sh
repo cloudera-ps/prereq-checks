@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 function check_addc() {
     # the domainname passed by the caller, already checked to be non-empty
     DOMAIN=$1

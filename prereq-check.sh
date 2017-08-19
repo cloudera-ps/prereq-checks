@@ -27,7 +27,7 @@
 # You are responsible for reviewing and testing any scripts you run thoroughly
 # before use in any non-testing environment.
 
-VER=1.4.1
+VER=1.4.2
 
 if [ "$(uname)" = 'Darwin' ]; then
     echo -e "\nThis tool runs on Linux only, not Mac OS."
@@ -540,6 +540,8 @@ main();
 EOF
 
 # security-checks.sh ------------------------------------------------
+#!/usr/bin/env bash
+
 function check_addc() {
     # the domainname passed by the caller, already checked to be non-empty
     DOMAIN=$1
@@ -628,6 +630,8 @@ EOFILE
 }
 
 # checks.sh ------------------------------------------------
+#!/usr/bin/env bash
+
 function check_java() {
     # The following candidate list is from CM agent:
     # Starship/cmf/agents/cmf/service/common/cloudera-config.sh
@@ -688,8 +692,9 @@ function check_java() {
     # JDK 7 minimum required version is JDK 1.7u55
     # JDK 8 minimum required version is JDK 1.8u31
     #   excluldes JDK 1.8u40, JDK 1.8u45, and JDK 1.8u60
-    for candidate_regex in ${JAVA_HOME_CANDIDATES[@]}; do
-        for candidate in `ls -rvd ${candidate_regex}* 2>/dev/null`; do
+    for candidate_regex in "${JAVA_HOME_CANDIDATES[@]}"; do
+        # shellcheck disable=SC2045
+        for candidate in $(ls -rvd "${candidate_regex}*" 2>/dev/null); do
             if [ -x ${candidate}/bin/java ]; then
                 VERSION_STRING=`${candidate}/bin/java -version 2>&1`
                 RE_JAVA_GOOD='java[[:space:]]version[[:space:]]\"1\.([0-9])\.0_([0-9][0-9]*)\"'
@@ -716,7 +721,7 @@ function check_java() {
                     else
                         state "Java: Unsupported Oracle Java: ${candidate}/bin/java" 0
                     fi
-                elif [[ $VERSION_STRING =~ $_RE_JAVA_BAD ]]; then
+                elif [[ $VERSION_STRING =~ $RE_JAVA_BAD ]]; then
                     state "Java: Unsupported OpenJDK: ${candidate}/bin/java" 1
                 else
                     state "Java: Unsupported Unknown: ${candidate}/bin/java" 1
@@ -729,8 +734,9 @@ function check_java() {
 function check_os() (
     function check_swappiness() {
         # http://www.cloudera.com/content/www/en-us/documentation/enterprise/latest/topics/cdh_admin_performance.html#xd_583c10bfdbd326ba-7dae4aa6-147c30d0933--7fd5__section_xpq_sdf_jq
-        local swappiness=`cat /proc/sys/vm/swappiness`
+        local swappiness
         local msg="System: /proc/sys/vm/swappiness should be 1"
+        swappiness=$(cat /proc/sys/vm/swappiness)
         if [ "$swappiness" -eq 1 ]; then
             state "$msg" 0
         else
@@ -762,7 +768,8 @@ function check_os() (
         #   1: /sys/kernel/mm/redhat_transparent_hugepage/defrag
         #   2: /sys/kernel/mm/transparent_hugepage/defrag.
         # http://www.cloudera.com/content/www/en-us/documentation/enterprise/latest/topics/cdh_admin_performance.html#xd_583c10bfdbd326ba-7dae4aa6-147c30d0933--7fd5__section_hw3_sdf_jq
-        local file=`find /sys/kernel/mm/ -type d -name '*transparent_hugepage'`/defrag
+        local file
+        file=$(find /sys/kernel/mm/ -type d -name '*transparent_hugepage')/defrag
         if [ -f $file ]; then
             local msg="System: $file should be disabled"
             if fgrep -q "[never]" $file; then
@@ -789,7 +796,7 @@ function check_os() (
     # https://community.cloudera.com/t5/Cloudera-Manager-Installation/Should-Cloudera-NTP-use-Chrony-or-NTPD/td-p/55986
     function check_time_sync() (
         function is_ntp_in_sync() {
-            if [ `ntpstat | grep "synchronised to NTP server" | wc -l` -eq 1 ]; then
+            if [ "$(ntpstat | grep "synchronised to NTP server" | wc -l)" -eq 1 ]; then
                 state "System: ntpd clock synced" 0
             else
                 state "System: ntpd clock NOT synced. Check `ntpstat`" 1
@@ -812,7 +819,8 @@ function check_os() (
     )
 
     function check_32bit_packages() {
-        local packages_32bit=`rpm -qa --queryformat '\t%{NAME} %{ARCH}\n' | grep 'i[6543]86' | cut -d' ' -f1`
+        local packages_32bit
+        packages_32bit=$(rpm -qa --queryformat '\t%{NAME} %{ARCH}\n' | grep 'i[6543]86' | cut -d' ' -f1)
         if [ "$packages_32bit" ]; then
             state "System: Found the following 32bit packages installed:\n$packages_32bit" 1
         else
@@ -827,15 +835,15 @@ function check_os() (
             'ip6tables'
             'postfix'
         )
-        for service_name in ${UNNECESSARY_SERVICES[@]}; do
+        for service_name in "${UNNECESSARY_SERVICES[@]}"; do
             _check_service_is_not_running 'System' "$service_name" 2
         done
     }
 
     function check_tmp_noexec() {
         local noexec=false
-        for option in `findmnt -lno options --target /tmp | tr ',' ' '`; do
-            if [[ $option = 'noexec' ]]; then
+        for option in $(findmnt -lno options --target /tmp | tr ',' ' '); do
+            if [[ "$option" = 'noexec' ]]; then
                 noexec=true
             fi
         done
@@ -860,24 +868,28 @@ function check_database() {
     local VERSION_PATTERN='([0-9][0-9]*\.[0-9][0-9]*)\.[0-9][0-9]*'
     local mysql_ver=''
     local mysql_rpm=''
-    local mysql_ent=`rpm -q --queryformat='%{VERSION}' mysql-commercial-server`
+    local mysql_ent
+    local mysql_com
+
+    mysql_ent=$(rpm -q --queryformat='%{VERSION}' mysql-commercial-server)
     if [[ $? -eq 0 ]]; then
-        mysql_rpm=`rpm -q mysql-commercial-server`
+        mysql_rpm=$(rpm -q mysql-commercial-server)
         [[ $mysql_ent =~ $VERSION_PATTERN ]]
         mysql_ver=${BASH_REMATCH[1]}
     fi
-    local mysql_com=`rpm -q --queryformat='%{VERSION}' mysql-community-server`
+
+    mysql_com=$(rpm -q --queryformat='%{VERSION}' mysql-community-server)
     if [[ $? -eq 0 ]]; then
-        mysql_rpm=`rpm -q mysql-community-server`
+        mysql_rpm=$(rpm -q mysql-community-server)
         [[ $mysql_com =~ $VERSION_PATTERN ]]
         mysql_ver=${BASH_REMATCH[1]}
     fi
-    if [[ -z $mysql_ver ]]; then
+    if [[ -z "$mysql_ver" ]]; then
         state "Database: MySQL server not installed, skipping version check" 2
         return
     fi
 
-    case $mysql_ver in
+    case "$mysql_ver" in
         '5.1'|'5.5'|'5.6'|'5.7')
             state "Database: Supported MySQL server installed. $mysql_rpm" 0
             ;;
@@ -899,17 +911,17 @@ function check_jdbc_connector() {
 }
 
 function check_network() {
+    local entries
     check_hostname
-
-    local entries=`cat /etc/hosts | grep -Ev "^#|^ *$" | wc -l`
+    entries=$(cat /etc/hosts | grep -Ev "^#|^ *$" | wc -l)
     local msg="Network: /etc/hosts entries should be <= 2 (use DNS). Actual: $entries"
     if [ "$entries" -le 2 ]; then
         local rc=0
         while read line; do
             entry=`echo $line | grep -Ev "^#|^ *$"`
             if [ ! "$entry" = "" ]; then
-                set -- `echo $line | awk '{ print $1, $2 }'`
-                if [ "$1" = "127.0.0.1" -o "$1" = "::1" ] && [ "$2" = "localhost" ]; then
+                set -- "$(echo "$line" | awk '{ print $1, $2 }')"
+                if [ "$1" = "127.0.0.1" ] || [ "$1" = "::1" ] && [ "$2" = "localhost" ]; then
                     :
                 else
                     rc=1
@@ -975,10 +987,13 @@ function check_network() {
     # Consistency check on forward (hostname to ip address) and
     # reverse (ip address to hostname) resolutions.
     # Note that an additional `.' in the PTR ANSWER SECTION.
-    local fqdn=`hostname -f`
-    local fwd_lookup=`dig -4 $fqdn A +short`
-    local rvs_lookup=`dig -4 -x $fwd_lookup PTR +short`
-    if [[ "${fqdn}." = $rvs_lookup ]]; then
+    local fqdn
+    local fwd_lookup
+    local rvs_lookup
+    fqdn=$(hostname -f)
+    fwd_lookup=$(dig -4 $fqdn A +short)
+    rvs_lookup=$(dig -4 -x $fwd_lookup PTR +short)
+    if [[ "${fqdn}." = "$rvs_lookup" ]]; then
         state "Network: Consistent name resolution of $fqdn" 0
     else
         state "Network: Inconsistent name resolution of $fqdn. Check DNS configuration" 1
@@ -986,8 +1001,10 @@ function check_network() {
 }
 
 function check_hostname() {
-    local fqdn=`hostname -f`
-    local short=`hostname -s`
+    local fqdn
+    local short
+    fqdn=$(hostname -f)
+    short=$(hostname -s)
 
     # https://en.wikipedia.org/wiki/Hostname
     # Hostnames are composed of series of labels concatenated with dots, as are
@@ -1006,8 +1023,8 @@ function check_hostname() {
             # add the node to domain. Won't work well with Kerberos/AD.
             state "Network: Computer name should be <= 15 characters (NetBIOS restriction)" 1
         else
-            if [[ `echo $fqdn | sed -e 's/\..*//'` = $short ]]; then
-                if [[ `echo $fqdn | grep '[A-Z]'` = "" ]]; then
+            if [[ $(echo "$fqdn" | sed -e 's/\..*//') = "$short" ]]; then
+                if [[ $(echo "$fqdn" | grep '[A-Z]') = "" ]]; then
                     state "Network: Hostname looks good (FQDN, no uppercase letters)" 0
                 else
                     # Cluster hosts must have a working network name resolution system and
@@ -1052,15 +1069,18 @@ function checks() {
 }
 
 # info.sh ------------------------------------------------
+#!/usr/bin/env bash
+
 function print_time() {
-    local timezone=`date | awk '{print $(NF-1)}'`
+    local timezone
+    timezone=$(date | awk '{print $(NF-1)}')
     timezone=${timezone:-UTC}
     print_label "Timezone" "$timezone"
-    print_label "DateTime" "`date`"
+    print_label "DateTime" "$(date)"
 }
 
 function print_fqdn() {
-    print_label "FQDN" `hostname -f`
+    print_label "FQDN" "$(hostname -f)"
 }
 
 function print_os() {
@@ -1072,21 +1092,22 @@ function print_os() {
             /etc/redhat-release )
     fi
     print_label "Distro" "$distro"
-    print_label "Kernel" `uname -r`
+    print_label "Kernel" "$(uname -r)"
 }
 
 function print_cpu_and_ram() {
-    local cpu=`grep -m1 "^model name" /proc/cpuinfo | cut -d' ' -f3- | sed -e 's/(R)//' -e 's/Core(TM) //' -e 's/CPU //'`
-    print_label "CPUs" "`nproc`x $cpu"
+    local cpu
+    cpu=$(grep -m1 "^model name" /proc/cpuinfo | cut -d' ' -f3- | sed -e 's/(R)//' -e 's/Core(TM) //' -e 's/CPU //')
+    print_label "CPUs" "$(nproc)x $cpu"
     # Total installed memory (MemTotal and SwapTotal in /proc/meminfo)
     print_label "RAM" "$(awk '/^MemTotal:/ { printf "%.2f", $2/1024/1024 ; exit}' /proc/meminfo)G"
 }
 
 function print_disks() (
     function data_mounts() {
-        while read source target fstype options; do
+        while read -r source target fstype options; do
             local NOATIME=false
-            for option in `echo $options | tr ',' ' '`; do
+            for option in $(echo "$options" | tr ',' ' '); do
                 if [[ $option = 'noatime' ]]; then
                     NOATIME=true
                 fi
@@ -1094,7 +1115,8 @@ function print_disks() (
             echo -n "$source $target "
             case $fstype in
                 'xfs')
-                    local resblks=`xfs_io -xc resblks $target | awk '/^reserved blocks =/ { print $4 }'`
+                    local resblks
+                    resblks=$(xfs_io -xc resblks "$target" | awk '/^reserved blocks =/ { print $4 }')
                     echo -en "\e[92m$fstype\033[0m, "
                     if [[ $resblks -eq 0 ]]; then
                         echo -en "\e[92mNo\033[0m reserved blocks, "
@@ -1108,7 +1130,8 @@ function print_disks() (
                     fi
                     ;;
                 'ext3'|'ext4')
-                    local resblks=`tune2fs -l $source | awk '/^Reserved block count:/ { print $4 }'`
+                    local resblks
+                    resblks=$(tune2fs -l "$source" | awk '/^Reserved block count:/ { print $4 }')
                     echo -en "\e[92m$fstype\033[0m, "
                     if [[ $resblks -eq 0 ]]; then
                         echo -en "\e[92mNo\033[0m reserved blocks, "
@@ -1128,24 +1151,26 @@ function print_disks() (
         done
     }
     echo "Disks:"
-    for d in `ls /dev/{sd?,xvd?} 2>/dev/null`; do
+    # shellcheck disable=SC2045
+    for d in $(ls /dev/{sd?,xvd?} 2>/dev/null); do
         pad; echo -n "$d  "
-        sudo fdisk -l $d 2>/dev/null | grep "^Disk /dev/" | cut -d' ' -f3-4 | cut -d',' -f1
+        sudo fdisk -l "$d" 2>/dev/null | grep "^Disk /dev/" | cut -d' ' -f3-4 | cut -d',' -f1
     done
     echo "Mount:"
     findmnt -lo source,target,fstype,options | grep '^/dev' | \
-        while read line; do
-            pad; echo $line
+        while read -r line; do
+            pad; echo "$line"
         done
     echo "Data mounts:"
-    local DATA_MOUNTS=$( findmnt -lno source,target,fstype,options | \
+    local DATA_MOUNTS
+    DATA_MOUNTS=$( findmnt -lno source,target,fstype,options | \
         grep -E '[[:space:]]/data' | data_mounts )
     if [[ -z ${DATA_MOUNTS} ]]; then
         pad; echo "None found"
     else
         local IFS='|'
-        echo ${DATA_MOUNTS} | while read line; do
-            pad; echo $line
+        echo "$DATA_MOUNTS" | while read -r line; do
+            pad; echo "$line"
         done
     fi
 )
@@ -1156,10 +1181,11 @@ function print_free_space() (
         # $ df -Ph /opt
         # Filesystem      Size  Used Avail Use% Mounted on
         # /dev/sda1        99G  1.8G   92G   2% /
-        local path=$1
-        local free=`df -Ph $path | tail -1 | awk '{print $4}'`
+        local path="$1"
+        local free
+        free=$(df -Ph "$path" | tail -1 | awk '{print $4}')
         pad
-        printf "%-9s %s\n" $path $free
+        printf "%-9s %s\n" "$path" "$free"
     }
     echo "Free space:"
     free_space /opt
@@ -1167,12 +1193,15 @@ function print_free_space() (
 )
 
 function print_cloudera_rpms() {
-    local rpms=`echo -e "$RPM_QA" | grep "^cloudera-"`
+    local rpms
+    rpms=$(echo -e "$RPM_QA" | grep "^cloudera-")
     if [ "$rpms" ]; then
         echo "Cloudera RPMs:"
-        for line in `echo $rpms`; do
-            local pkg=`echo $line | cut -d'-' -f1-3`
-            local ver=`echo $line | cut -d'-' -f4-`
+        local pkg
+        local ver
+        for line in $rpms; do
+            pkg=$(echo "$line" | cut -d'-' -f1-3)
+            ver=$(echo "$line" | cut -d'-' -f4-)
             pad
             printf "%-24s  %s\n" "$pkg" "$ver"
         done
@@ -1182,12 +1211,12 @@ function print_cloudera_rpms() {
 }
 
 function print_network() {
-    print_label "nsswitch" "`grep "^hosts:" /etc/nsswitch.conf | sed 's/^hosts: *//'`"
-    print_label "DNS server" `grep "^nameserver" /etc/resolv.conf | cut -d' ' -f2`
+    print_label "nsswitch" "$(grep "^hosts:" /etc/nsswitch.conf | sed 's/^hosts: *//')"
+    print_label "DNS server" "$(grep "^nameserver" /etc/resolv.conf | cut -d' ' -f2)"
 }
 
 function print_internet() {
-  if [ `ping -W1 -c1 8.8.8.8 &>/dev/null; echo $?` -eq 0 ]; then
+  if [ "$(ping -W1 -c1 8.8.8.8 &>/dev/null; echo $?)" -eq 0 ]; then
     print_label "Internet" "Yes"
   else
     print_label "Internet" "No"
@@ -1208,6 +1237,8 @@ function system_info() {
 }
 
 # utils.sh ------------------------------------------------
+#!/usr/bin/env bash
+
 # Global array variable for passing service state. Set by get_service_state().
 declare -A SERVICE_STATE
 
@@ -1224,16 +1255,16 @@ function print_header() {
 }
 
 function pad() {
-    printf "%$(($SYSINFO_TITLE_WIDTH+1))s" " "
+    printf "%$((SYSINFO_TITLE_WIDTH+1))s" " "
 }
 
 # Print state with coloured OK/FAIL prefix
 function state() {
     local msg=$1
     local flag=$2
-    if [ $flag -eq 0 ]; then
+    if [ "$flag" -eq 0 ]; then
         echo -e "\e[92m PASS \033[0m $msg"
-    elif [ $flag -eq 2 ]; then
+    elif [ "$flag" -eq 2 ]; then
         echo -e "\e[93m WARN \033[0m $msg"
     else
         echo -e "\e[91m FAIL \033[0m $msg"
@@ -1255,16 +1286,16 @@ function _check_service_is_running() {
         if [ "${SERVICE_STATE['running']}" = true ]; then
             state "$prefix: $service_name is running" 0
         else
-            state "$prefix: $service_name is not running" $msgflag
+            state "$prefix: $service_name is not running" "$msgflag"
         fi
 
         if [ "${SERVICE_STATE['autostart']}" = true ]; then
             state "$prefix: $service_name auto-starts on boot" 0
         else
-            state "$prefix: $service_name does not auto-start on boot" $msgflag
+            state "$prefix: $service_name does not auto-start on boot" "$msgflag"
         fi
     else
-        state "$prefix: $service_name is not installed" $msgflag
+        state "$prefix: $service_name is not installed" "$msgflag"
     fi
 }
 
@@ -1281,13 +1312,13 @@ function _check_service_is_not_running() {
 
     if [ "${SERVICE_STATE['installed']}" = true ]; then
         if [ "${SERVICE_STATE['running']}" = true ]; then
-            state "$prefix: $service_name should not be running" $msgflag
+            state "$prefix: $service_name should not be running" "$msgflag"
         else
             state "$prefix: $service_name is not running" 0
         fi
 
         if [ "${SERVICE_STATE['autostart']}" = true ]; then
-            state "$prefix: $service_name should not auto-start on boot" $msgflag
+            state "$prefix: $service_name should not auto-start on boot" "$msgflag"
         else
             state "$prefix: $service_name does not auto-start on boot" 0
         fi
@@ -1323,7 +1354,8 @@ function get_service_state() {
     reset_service_state
 
     if is_centos_rhel_7; then
-        local sub_state=`systemctl show $service_name --type=service --property=SubState 2</dev/null | sed -e 's/^.*=//'`
+        local sub_state
+        sub_state=$(systemctl show "$service_name" --type=service --property=SubState 2</dev/null | sed -e 's/^.*=//')
         case $sub_state in
             'running')  SERVICE_STATE['installed']=true
                         SERVICE_STATE['running']=true
@@ -1332,10 +1364,11 @@ function get_service_state() {
                         ;;
         esac
 
-        systemctl is-enabled $service_name --type=service --quiet 2</dev/null
-        if [[ $? -eq 0 ]]; then
-            SERVICE_STATE['autostart']=true
-        fi
+        systemctl is-enabled "$service_name" --type=service --quiet 2</dev/null
+        case $? in
+            0)  SERVICE_STATE['autostart']=true
+                ;;
+        esac
     else
         # Most services don't need sudo, but some like iptables do even for status.
         sudo service "$service_name" status 2&>/dev/null
@@ -1347,7 +1380,8 @@ function get_service_state() {
                 ;;
         esac
 
-        local autostart=`chkconfig 2>/dev/null | awk "/^$service_name / {print \\$5}"`
+        local autostart
+        autostart=$(chkconfig 2>/dev/null | awk "/^$service_name / {print \$5}")
         if [ "$autostart" = "3:on" ]; then
             SERVICE_STATE['autostart']=true
         fi
