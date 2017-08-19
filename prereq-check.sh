@@ -27,7 +27,7 @@
 # You are responsible for reviewing and testing any scripts you run thoroughly
 # before use in any non-testing environment.
 
-VER=1.3.0
+VER=1.4.0
 
 if [ "$(uname)" = 'Darwin' ]; then
     echo -e "\nThis tool runs on Linux only, not Mac OS."

@@ -1,5 +1,3 @@
-SERVICE_STATUS=()
-
 function check_java() {
     # The following candidate list is from CM agent:
     # Starship/cmf/agents/cmf/service/common/cloudera-config.sh
@@ -156,27 +154,30 @@ function check_os() (
         esac
     }
 
+    # Check that the system clock is synced by either ntpd or chronyd. Chronyd
+    # is on CentOS/RHEL 7 and above only.
+    # https://community.cloudera.com/t5/Cloudera-Manager-Installation/Should-Cloudera-NTP-use-Chrony-or-NTPD/td-p/55986
     function check_time_sync() (
         function is_ntp_in_sync() {
             if [ `ntpstat | grep "synchronised to NTP server" | wc -l` -eq 1 ]; then
-                state "System: Clock is synchronized against the NTPD server" 0
+                state "System: ntpd clock synced" 0
             else
-                state "System: NTP is not synchronized. Check ntpstat to troubleshoot" 1
+                state "System: ntpd clock NOT synced. Check `ntpstat`" 1
             fi
         }
 
         if is_centos_rhel_7; then
-            ntpd_used="$(_validate_service_state 'System' 'ntpd')"
-            if [ $ntpd_used -eq 0 ]; then
+            get_service_state 'ntpd'
+            if [ "${SERVICE_STATE['running']}" = true ]; then
+                # If ntpd is running, then chrony shouldn't be
                 _check_service_is_running 'System' 'ntpd'
                 is_ntp_in_sync
+                _check_service_is_not_running 'System' 'chronyd'
             else
-                # TODO Add check to see if chrony is actually synchronizing the clock. Use the command "chronyc tracking"
                 _check_service_is_running 'System' 'chronyd'
             fi
         else
             _check_service_is_running 'System' 'ntpd'
-            is_ntp_in_sync
         fi
     )
 
@@ -193,18 +194,11 @@ function check_os() (
         local UNNECESSARY_SERVICES=(
             'bluetooth'
             'cups'
-            'iptables'
             'ip6tables'
             'postfix'
         )
-        for svc in ${UNNECESSARY_SERVICES[@]}; do
-            _check_service_is_running 'DUMMY' ${svc} > /dev/null
-            local svc_running=${SERVICE_STATUS['running']}
-            if $svc_running; then
-                state "System: $svc is running (not recommended)" 2
-            else
-                state "System: $svc is not running (recommended)" 0
-            fi
+        for service_name in ${UNNECESSARY_SERVICES[@]}; do
+            _check_service_is_not_running 'System' "$service_name" 2
         done
     }
 
@@ -301,16 +295,10 @@ function check_network() {
         state "$msg" 2
     fi
 
-    # http://www.cloudera.com/content/www/en-us/documentation/enterprise/latest/topics/install_cdh_disable_iptables.html
-    if is_centos_rhel_7; then
-        _check_service_is_not_running 'Network' 'firewalld'
-    else
-        _check_service_is_not_running 'Network' 'iptables'
-    fi
     _check_service_is_running 'Network' 'nscd'
-    local nscd_running=${SERVICE_STATUS['running']}
+    local nscd_running=${SERVICE_STATE['running']}
     _check_service_is_running 'Network' 'sssd' 2
-    local sssd_running=${SERVICE_STATUS['running']}
+    local sssd_running=${SERVICE_STATE['running']}
 
     if $nscd_running && $sssd_running; then
         # 7.8. USING NSCD WITH SSSD
@@ -360,11 +348,10 @@ function check_network() {
     local fqdn=`hostname -f`
     local fwd_lookup=`dig -4 $fqdn A +short`
     local rvs_lookup=`dig -4 -x $fwd_lookup PTR +short`
-    local msg="Network: Consistent name resolution of $fqdn"
     if [[ "${fqdn}." = $rvs_lookup ]]; then
-        state "${msg}" 0
+        state "Network: Consistent name resolution of $fqdn" 0
     else
-        state "${msg}" 1
+        state "Network: Inconsistent name resolution of $fqdn. Check DNS configuration" 1
     fi
 }
 
@@ -414,10 +401,21 @@ function check_hostname() {
     fi
 }
 
+function check_firewall() {
+    # http://www.cloudera.com/content/www/en-us/documentation/enterprise/latest/topics/install_cdh_disable_iptables.html
+    if is_centos_rhel_7; then
+        _check_service_is_not_running 'Network' 'firewalld'
+    else
+        _check_service_is_not_running 'Network' 'iptables'
+    fi
+}
+
 function checks() {
     print_header "Prerequisite checks"
+    reset_service_state
     check_os
     check_network
+    check_firewall
     check_java
     check_database
     check_jdbc_connector

@@ -1,3 +1,6 @@
+# Global array variable for passing service state. Set by get_service_state().
+declare -A SERVICE_STATE
+
 SYSINFO_TITLE_WIDTH=14
 
 function print_label() {
@@ -27,146 +30,59 @@ function state() {
     fi
 }
 
-function service_cmd() {
-    if is_centos_rhel_7; then
-        echo "systemctl status $service"
-    else
-        echo "service $service status"
-    fi
-}
-
-function _validate_service_state() {
-    local prefix=$1
-    local service=$2
-    sudo `service_cmd` &>/dev/null
-    echo $?
-}
-
+# Checks that the specified service is installed, running, and auto-started on boot.
 function _check_service_is_running() {
-    local prefix=$1
-    local service=$2
-    local msgflag=${3:-1}
-    if is_centos_rhel_7; then
-        # Check the running status of the service (RHEL/CentOS7)
-        local sub_state=`systemctl show $service --type=service --property=SubState | sed -e 's/^.*=//'`
-        if [[ $sub_state = 'running' ]]; then
-            state "$prefix: $service is running" 0
-            SERVICE_STATUS['running']=true
+    local prefix="$1"
+    local service_name="$2"
+    local msgflag="${3:-1}"
+
+    [ -z "$prefix" ]       && die "Prefix not specified"
+    [ -z "$service_name" ] && die "Service name not specified"
+
+    get_service_state "$service_name"
+
+    if [ "${SERVICE_STATE['installed']}" = true ]; then
+        if [ "${SERVICE_STATE['running']}" = true ]; then
+            state "$prefix: $service_name is running" 0
         else
-            state "$prefix: $service is not running" $msgflag
-            SERVICE_STATUS['running']=false
+            state "$prefix: $service_name is not running" $msgflag
         fi
-        # Check the load state of the service (RHEL/CentOS7)
-        local load_state=`systemctl show $service --type=service --property=LoadState | sed -e 's/^.*=//'`
-        case $load_state in
-            'loaded')
-                systemctl is-enabled $service --type=service --quiet
-                if [[ $? -eq 0 ]]; then
-                    state "$prefix: $service auto-starts on boot" 0
-                    SERVICE_STATUS['auto-start']=true
-                else
-                    state "$prefix: $service does not auto-start on boot" $msgflag
-                    SERVICE_STATUS['auto-start']=false
-                fi
-                SERVICE_STATUS['installed']=true
-                ;;
-            'not-found')
-                state "$prefix: $service is not loaded, so won't auto-start on boot" $msgflag
-                SERVICE_STATUS['auto-start']=false
-                SERVICE_STATUS['installed']=false
-                ;;
-            *)
-                echo "Error: Uknown LoadState=$load_state for ${service}.service"
-                SERVICE_STATUS['auto-start']=false
-                SERVICE_STATUS['installed']=false
-                ;;
-        esac
+
+        if [ "${SERVICE_STATE['autostart']}" = true ]; then
+            state "$prefix: $service_name auto-starts on boot" 0
+        else
+            state "$prefix: $service_name does not auto-start on boot" $msgflag
+        fi
     else
-        # Check the running status of the service (RHEL/CentOS6)
-        sudo `service_cmd` &>/dev/null
-        case $? in
-            0)
-                state "$prefix: $service is running" 0
-                SERVICE_STATUS['running']=true
-                SERVICE_STATUS['installed']=true
-                ;;
-            3)
-                state "$prefix: $service is not running" $msgflag
-                SERVICE_STATUS['running']=false
-                SERVICE_STATUS['installed']=true
-                ;;
-            *)
-                state "$prefix: $service is not installed" $msgflag
-                SERVICE_STATUS['running']=false
-                SERVICE_STATUS['installed']=false
-                ;;
-        esac
-        # Check the runlevel information of the service (RHEL/CentOS6)
-        local chkconfig=`chkconfig 2>/dev/null | awk "/^$service / {print \\$5}"`
-        [ "$chkconfig" ] || chkconfig=""
-        if [ "$chkconfig" = "3:on" ]; then
-            state "$prefix: $service auto-starts on boot" 0
-            SERVICE_STATUS['auto-start']=true
-        else
-            state "$prefix: $service does not auto-start on boot" $msgflag
-            SERVICE_STATUS['auto-start']=false
-        fi
+        state "$prefix: $service_name is not installed" $msgflag
     fi
 }
 
+# Checks that the specified service is NOT installed, running, or auto-started on boot.
 function _check_service_is_not_running() {
-    local prefix=$1
-    local service=$2
-    if is_centos_rhel_7; then
-        # Check the running status of the service (RHEL/CentOS7)
-        local sub_state=`systemctl show $service --type=service --property=SubState | sed -e 's/^.*=//'`
-        if [[ $sub_state = 'running' ]]; then
-            state "$prefix: $service should not running" 1
+    local prefix="$1"
+    local service_name="$2"
+    local msgflag="${3:-1}"
+
+    [ -z "$prefix" ]       && die "Prefix not specified"
+    [ -z "$service_name" ] && die "Service name not specified"
+
+    get_service_state "$service_name"
+
+    if [ "${SERVICE_STATE['installed']}" = true ]; then
+        if [ "${SERVICE_STATE['running']}" = true ]; then
+            state "$prefix: $service_name should not be running" $msgflag
         else
-            state "$prefix: $service is not running" 0
+            state "$prefix: $service_name is not running" 0
         fi
-        # Check the load state of the service (RHEL/CentOS7)
-        local load_state=`systemctl show $service --type=service --property=LoadState | sed -e 's/^.*=//'`
-        case $load_state in
-            'loaded')
-                systemctl is-enabled $service --type=service --quiet
-                if [[ $? -eq 0 ]]; then
-                    state "$prefix: $service should not auto-start on boot" 1
-                else
-                    state "$prefix: $service does not auto-start on boot" 0
-                fi
-                ;;
-            'not-found')
-                state "$prefix: $service is not loaded, so won't auto-start on boot" 0
-                ;;
-            *)
-                echo "Error: Unknown LoadState=$load_state for ${service}.service"
-                ;;
-        esac
+
+        if [ "${SERVICE_STATE['autostart']}" = true ]; then
+            state "$prefix: $service_name should not auto-start on boot" $msgflag
+        else
+            state "$prefix: $service_name does not auto-start on boot" 0
+        fi
     else
-        # Check the running status of the service (RHEL/CentOS6)
-        sudo `service_cmd` &>/dev/null
-        case $? in
-            0) state "$prefix: $service should not running" 1
-                if [ "$service" = "iptables" ]; then
-                    echo "       iptable routes:"
-                    sudo iptables -L | sed "s/^/         /"
-                fi;;
-            3) state "$prefix: $service is not running"   0;;
-            *) state "$prefix: $service is not installed" 1;;
-        esac
-        # Check the runlevel information of the service (RHEL/CentOS6)
-        local chkconfig=`chkconfig 2>/dev/null | awk "/^$service / {print \\$5}"`
-        [ "$chkconfig" ] || chkconfig=""
-        if [ "$chkconfig" = "3:on" ]; then
-            if [ "$service" = "sssd" ]; then
-                state "$prefix: $service should not auto-start on boot" 2
-            else
-                state "$prefix: $service should not auto-start on boot" 1
-            fi
-        else
-            state "$prefix: $service does not auto-start on boot" 0
-        fi
+        state "$prefix: $service_name is not installed" 0
     fi
 }
 
@@ -175,5 +91,61 @@ function is_centos_rhel_7() {
         return 0;
     else
         return 1;
+    fi
+}
+
+function reset_service_state() {
+    SERVICE_STATE['installed']=false
+    SERVICE_STATE['running']=false
+    SERVICE_STATE['autostart']=false
+}
+
+function die() {
+    echo "ERROR: $*. Aborting!"
+    exit 2
+}
+
+function get_service_state() {
+    local service_name="$1"
+
+    [ -z "$service_name" ] && die "Service name not specified"
+
+    reset_service_state
+
+    if is_centos_rhel_7; then
+        local sub_state=`systemctl show $service_name --type=service --property=SubState 2</dev/null | sed -e 's/^.*=//'`
+        case $sub_state in
+            'running')  SERVICE_STATE['installed']=true
+                        SERVICE_STATE['running']=true
+                        ;;
+            'dead')     SERVICE_STATE['installed']=true
+                        ;;
+        esac
+
+        systemctl is-enabled $service_name --type=service --quiet 2</dev/null
+        if [[ $? -eq 0 ]]; then
+            SERVICE_STATE['autostart']=true
+        fi
+    else
+        # Most services don't need sudo, but some like iptables do even for status.
+        sudo service "$service_name" status 2&>/dev/null
+        case $? in
+            0)  SERVICE_STATE['installed']=true
+                SERVICE_STATE['running']=true
+                ;;
+            3)  SERVICE_STATE['installed']=true
+                ;;
+        esac
+
+        local autostart=`chkconfig 2>/dev/null | awk "/^$service_name / {print \\$5}"`
+        if [ "$autostart" = "3:on" ]; then
+            SERVICE_STATE['autostart']=true
+        fi
+    fi
+
+    if [ "$DEBUG" = true ]; then
+        echo "$service_name installed: ${SERVICE_STATE['installed']}"
+        echo "$service_name running:   ${SERVICE_STATE['running']}"
+        echo "$service_name autostart: ${SERVICE_STATE['autostart']}"
     fi
 }

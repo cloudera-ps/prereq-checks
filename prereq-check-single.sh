@@ -27,7 +27,12 @@
 # You are responsible for reviewing and testing any scripts you run thoroughly
 # before use in any non-testing environment.
 
-VER=1.3.0
+VER=1.4.0
+
+if [ "$(uname)" = 'Darwin' ]; then
+    echo -e "\nThis tool runs on Linux only, not Mac OS."
+    exit 1
+fi
 
 # Latest version at:
 #   https://raw.githubusercontent.com/cloudera-ps/prereq-checks/master/prereq-check-single.sh
@@ -133,8 +138,6 @@ EOFILE
 }
 
 # checks.sh ------------------------------------------------
-SERVICE_STATUS=()
-
 function check_java() {
     # The following candidate list is from CM agent:
     # Starship/cmf/agents/cmf/service/common/cloudera-config.sh
@@ -291,27 +294,30 @@ function check_os() (
         esac
     }
 
+    # Check that the system clock is synced by either ntpd or chronyd. Chronyd
+    # is on CentOS/RHEL 7 and above only.
+    # https://community.cloudera.com/t5/Cloudera-Manager-Installation/Should-Cloudera-NTP-use-Chrony-or-NTPD/td-p/55986
     function check_time_sync() (
         function is_ntp_in_sync() {
             if [ `ntpstat | grep "synchronised to NTP server" | wc -l` -eq 1 ]; then
-                state "System: Clock is synchronized against the NTPD server" 0
+                state "System: ntpd clock synced" 0
             else
-                state "System: NTP is not synchronized. Check ntpstat to troubleshoot" 1
+                state "System: ntpd clock NOT synced. Check `ntpstat`" 1
             fi
         }
 
         if is_centos_rhel_7; then
-            ntpd_used="$(_validate_service_state 'System' 'ntpd')"
-            if [ $ntpd_used -eq 0 ]; then
+            get_service_state 'ntpd'
+            if [ "${SERVICE_STATE['running']}" = true ]; then
+                # If ntpd is running, then chrony shouldn't be
                 _check_service_is_running 'System' 'ntpd'
                 is_ntp_in_sync
+                _check_service_is_not_running 'System' 'chronyd'
             else
-                # TODO Add check to see if chrony is actually synchronizing the clock. Use the command "chronyc tracking"
                 _check_service_is_running 'System' 'chronyd'
             fi
         else
             _check_service_is_running 'System' 'ntpd'
-            is_ntp_in_sync
         fi
     )
 
@@ -328,18 +334,11 @@ function check_os() (
         local UNNECESSARY_SERVICES=(
             'bluetooth'
             'cups'
-            'iptables'
             'ip6tables'
             'postfix'
         )
-        for svc in ${UNNECESSARY_SERVICES[@]}; do
-            _check_service_is_running 'DUMMY' ${svc} > /dev/null
-            local svc_running=${SERVICE_STATUS['running']}
-            if $svc_running; then
-                state "System: $svc is running (not recommended)" 2
-            else
-                state "System: $svc is not running (recommended)" 0
-            fi
+        for service_name in ${UNNECESSARY_SERVICES[@]}; do
+            _check_service_is_not_running 'System' "$service_name" 2
         done
     }
 
@@ -436,16 +435,10 @@ function check_network() {
         state "$msg" 2
     fi
 
-    # http://www.cloudera.com/content/www/en-us/documentation/enterprise/latest/topics/install_cdh_disable_iptables.html
-    if is_centos_rhel_7; then
-        _check_service_is_not_running 'Network' 'firewalld'
-    else
-        _check_service_is_not_running 'Network' 'iptables'
-    fi
     _check_service_is_running 'Network' 'nscd'
-    local nscd_running=${SERVICE_STATUS['running']}
+    local nscd_running=${SERVICE_STATE['running']}
     _check_service_is_running 'Network' 'sssd' 2
-    local sssd_running=${SERVICE_STATUS['running']}
+    local sssd_running=${SERVICE_STATE['running']}
 
     if $nscd_running && $sssd_running; then
         # 7.8. USING NSCD WITH SSSD
@@ -495,11 +488,10 @@ function check_network() {
     local fqdn=`hostname -f`
     local fwd_lookup=`dig -4 $fqdn A +short`
     local rvs_lookup=`dig -4 -x $fwd_lookup PTR +short`
-    local msg="Network: Consistent name resolution of $fqdn"
     if [[ "${fqdn}." = $rvs_lookup ]]; then
-        state "${msg}" 0
+        state "Network: Consistent name resolution of $fqdn" 0
     else
-        state "${msg}" 1
+        state "Network: Inconsistent name resolution of $fqdn. Check DNS configuration" 1
     fi
 }
 
@@ -549,10 +541,21 @@ function check_hostname() {
     fi
 }
 
+function check_firewall() {
+    # http://www.cloudera.com/content/www/en-us/documentation/enterprise/latest/topics/install_cdh_disable_iptables.html
+    if is_centos_rhel_7; then
+        _check_service_is_not_running 'Network' 'firewalld'
+    else
+        _check_service_is_not_running 'Network' 'iptables'
+    fi
+}
+
 function checks() {
     print_header "Prerequisite checks"
+    reset_service_state
     check_os
     check_network
+    check_firewall
     check_java
     check_database
     check_jdbc_connector
@@ -715,6 +718,9 @@ function system_info() {
 }
 
 # utils.sh ------------------------------------------------
+# Global array variable for passing service state. Set by get_service_state().
+declare -A SERVICE_STATE
+
 SYSINFO_TITLE_WIDTH=14
 
 function print_label() {
@@ -744,146 +750,59 @@ function state() {
     fi
 }
 
-function service_cmd() {
-    if is_centos_rhel_7; then
-        echo "systemctl status $service"
-    else
-        echo "service $service status"
-    fi
-}
-
-function _validate_service_state() {
-    local prefix=$1
-    local service=$2
-    sudo `service_cmd` &>/dev/null
-    echo $?
-}
-
+# Checks that the specified service is installed, running, and auto-started on boot.
 function _check_service_is_running() {
-    local prefix=$1
-    local service=$2
-    local msgflag=${3:-1}
-    if is_centos_rhel_7; then
-        # Check the running status of the service (RHEL/CentOS7)
-        local sub_state=`systemctl show $service --type=service --property=SubState | sed -e 's/^.*=//'`
-        if [[ $sub_state = 'running' ]]; then
-            state "$prefix: $service is running" 0
-            SERVICE_STATUS['running']=true
+    local prefix="$1"
+    local service_name="$2"
+    local msgflag="${3:-1}"
+
+    [ -z "$prefix" ]       && die "Prefix not specified"
+    [ -z "$service_name" ] && die "Service name not specified"
+
+    get_service_state "$service_name"
+
+    if [ "${SERVICE_STATE['installed']}" = true ]; then
+        if [ "${SERVICE_STATE['running']}" = true ]; then
+            state "$prefix: $service_name is running" 0
         else
-            state "$prefix: $service is not running" $msgflag
-            SERVICE_STATUS['running']=false
+            state "$prefix: $service_name is not running" $msgflag
         fi
-        # Check the load state of the service (RHEL/CentOS7)
-        local load_state=`systemctl show $service --type=service --property=LoadState | sed -e 's/^.*=//'`
-        case $load_state in
-            'loaded')
-                systemctl is-enabled $service --type=service --quiet
-                if [[ $? -eq 0 ]]; then
-                    state "$prefix: $service auto-starts on boot" 0
-                    SERVICE_STATUS['auto-start']=true
-                else
-                    state "$prefix: $service does not auto-start on boot" $msgflag
-                    SERVICE_STATUS['auto-start']=false
-                fi
-                SERVICE_STATUS['installed']=true
-                ;;
-            'not-found')
-                state "$prefix: $service is not loaded, so won't auto-start on boot" $msgflag
-                SERVICE_STATUS['auto-start']=false
-                SERVICE_STATUS['installed']=false
-                ;;
-            *)
-                echo "Error: Uknown LoadState=$load_state for ${service}.service"
-                SERVICE_STATUS['auto-start']=false
-                SERVICE_STATUS['installed']=false
-                ;;
-        esac
+
+        if [ "${SERVICE_STATE['autostart']}" = true ]; then
+            state "$prefix: $service_name auto-starts on boot" 0
+        else
+            state "$prefix: $service_name does not auto-start on boot" $msgflag
+        fi
     else
-        # Check the running status of the service (RHEL/CentOS6)
-        sudo `service_cmd` &>/dev/null
-        case $? in
-            0)
-                state "$prefix: $service is running" 0
-                SERVICE_STATUS['running']=true
-                SERVICE_STATUS['installed']=true
-                ;;
-            3)
-                state "$prefix: $service is not running" $msgflag
-                SERVICE_STATUS['running']=false
-                SERVICE_STATUS['installed']=true
-                ;;
-            *)
-                state "$prefix: $service is not installed" $msgflag
-                SERVICE_STATUS['running']=false
-                SERVICE_STATUS['installed']=false
-                ;;
-        esac
-        # Check the runlevel information of the service (RHEL/CentOS6)
-        local chkconfig=`chkconfig 2>/dev/null | awk "/^$service / {print \\$5}"`
-        [ "$chkconfig" ] || chkconfig=""
-        if [ "$chkconfig" = "3:on" ]; then
-            state "$prefix: $service auto-starts on boot" 0
-            SERVICE_STATUS['auto-start']=true
-        else
-            state "$prefix: $service does not auto-start on boot" $msgflag
-            SERVICE_STATUS['auto-start']=false
-        fi
+        state "$prefix: $service_name is not installed" $msgflag
     fi
 }
 
+# Checks that the specified service is NOT installed, running, or auto-started on boot.
 function _check_service_is_not_running() {
-    local prefix=$1
-    local service=$2
-    if is_centos_rhel_7; then
-        # Check the running status of the service (RHEL/CentOS7)
-        local sub_state=`systemctl show $service --type=service --property=SubState | sed -e 's/^.*=//'`
-        if [[ $sub_state = 'running' ]]; then
-            state "$prefix: $service should not running" 1
+    local prefix="$1"
+    local service_name="$2"
+    local msgflag="${3:-1}"
+
+    [ -z "$prefix" ]       && die "Prefix not specified"
+    [ -z "$service_name" ] && die "Service name not specified"
+
+    get_service_state "$service_name"
+
+    if [ "${SERVICE_STATE['installed']}" = true ]; then
+        if [ "${SERVICE_STATE['running']}" = true ]; then
+            state "$prefix: $service_name should not be running" $msgflag
         else
-            state "$prefix: $service is not running" 0
+            state "$prefix: $service_name is not running" 0
         fi
-        # Check the load state of the service (RHEL/CentOS7)
-        local load_state=`systemctl show $service --type=service --property=LoadState | sed -e 's/^.*=//'`
-        case $load_state in
-            'loaded')
-                systemctl is-enabled $service --type=service --quiet
-                if [[ $? -eq 0 ]]; then
-                    state "$prefix: $service should not auto-start on boot" 1
-                else
-                    state "$prefix: $service does not auto-start on boot" 0
-                fi
-                ;;
-            'not-found')
-                state "$prefix: $service is not loaded, so won't auto-start on boot" 0
-                ;;
-            *)
-                echo "Error: Unknown LoadState=$load_state for ${service}.service"
-                ;;
-        esac
+
+        if [ "${SERVICE_STATE['autostart']}" = true ]; then
+            state "$prefix: $service_name should not auto-start on boot" $msgflag
+        else
+            state "$prefix: $service_name does not auto-start on boot" 0
+        fi
     else
-        # Check the running status of the service (RHEL/CentOS6)
-        sudo `service_cmd` &>/dev/null
-        case $? in
-            0) state "$prefix: $service should not running" 1
-                if [ "$service" = "iptables" ]; then
-                    echo "       iptable routes:"
-                    sudo iptables -L | sed "s/^/         /"
-                fi;;
-            3) state "$prefix: $service is not running"   0;;
-            *) state "$prefix: $service is not installed" 1;;
-        esac
-        # Check the runlevel information of the service (RHEL/CentOS6)
-        local chkconfig=`chkconfig 2>/dev/null | awk "/^$service / {print \\$5}"`
-        [ "$chkconfig" ] || chkconfig=""
-        if [ "$chkconfig" = "3:on" ]; then
-            if [ "$service" = "sssd" ]; then
-                state "$prefix: $service should not auto-start on boot" 2
-            else
-                state "$prefix: $service should not auto-start on boot" 1
-            fi
-        else
-            state "$prefix: $service does not auto-start on boot" 0
-        fi
+        state "$prefix: $service_name is not installed" 0
     fi
 }
 
@@ -895,14 +814,65 @@ function is_centos_rhel_7() {
     fi
 }
 
+function reset_service_state() {
+    SERVICE_STATE['installed']=false
+    SERVICE_STATE['running']=false
+    SERVICE_STATE['autostart']=false
+}
+
+function die() {
+    echo "ERROR: $*. Aborting!"
+    exit 2
+}
+
+function get_service_state() {
+    local service_name="$1"
+
+    [ -z "$service_name" ] && die "Service name not specified"
+
+    reset_service_state
+
+    if is_centos_rhel_7; then
+        local sub_state=`systemctl show $service_name --type=service --property=SubState 2</dev/null | sed -e 's/^.*=//'`
+        case $sub_state in
+            'running')  SERVICE_STATE['installed']=true
+                        SERVICE_STATE['running']=true
+                        ;;
+            'dead')     SERVICE_STATE['installed']=true
+                        ;;
+        esac
+
+        systemctl is-enabled $service_name --type=service --quiet 2</dev/null
+        if [[ $? -eq 0 ]]; then
+            SERVICE_STATE['autostart']=true
+        fi
+    else
+        # Most services don't need sudo, but some like iptables do even for status.
+        sudo service "$service_name" status 2&>/dev/null
+        case $? in
+            0)  SERVICE_STATE['installed']=true
+                SERVICE_STATE['running']=true
+                ;;
+            3)  SERVICE_STATE['installed']=true
+                ;;
+        esac
+
+        local autostart=`chkconfig 2>/dev/null | awk "/^$service_name / {print \\$5}"`
+        if [ "$autostart" = "3:on" ]; then
+            SERVICE_STATE['autostart']=true
+        fi
+    fi
+
+    if [ "$DEBUG" = true ]; then
+        echo "$service_name installed: ${SERVICE_STATE['installed']}"
+        echo "$service_name running:   ${SERVICE_STATE['running']}"
+        echo "$service_name autostart: ${SERVICE_STATE['autostart']}"
+    fi
+}
+
 # prereq-check.sh (main) ------------------------------------------------
 
 BANNER="Cloudera Manager & CDH Prerequisites Checks v$VER"
-
-if [ "$(uname)" = 'Darwin' ]; then
-    echo -e "\nThis tool runs on Linux only, not Mac OS."
-    exit 1
-fi
 
 function usage() {
     SCRIPTNAME=$(basename "${BASH_SOURCE[0]}")
