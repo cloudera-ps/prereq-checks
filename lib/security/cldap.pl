@@ -2,6 +2,8 @@
 
 # Copyright (C) Guenther Deschner <gd@samba.org> 2006
 
+# From https://github.com/samba-team/samba/blob/master/examples/misc/cldap.pl
+
 use strict;
 use IO::Socket;
 use Convert::ASN1 qw(:debug);
@@ -34,7 +36,7 @@ my %cldap_flags = (
 	ADS_TIMESERV		=> 0x00000040, # DC is running time services
 	ADS_CLOSEST		=> 0x00000080, # DC is closest to client
 	ADS_WRITABLE		=> 0x00000100, # DC has writable DS
-	ADS_GOOD_TIMESERV	=> 0x00000200, # DC has hardware clock (and running time) 
+	ADS_GOOD_TIMESERV	=> 0x00000200, # DC has hardware clock (and running time)
 	ADS_NDNC		=> 0x00000400, # DomainName is non-domain NC serviced by LDAP server
 );
 
@@ -63,14 +65,14 @@ my %cldap_netlogon_reply = (
 	lm20_token		=> 0x0,
 );
 
-sub usage { 
+sub usage {
 	print "usage: $0 [--domain|-d domain] [--help] [--host|-h host] [--server|-s server]\n\n";
 }
 
 sub connect_cldap ($) {
 
 	my $server = shift || return undef;
-	
+
 	return IO::Socket::INET->new(
 		PeerAddr	=> $server,
 		PeerPort	=> 389,
@@ -118,9 +120,9 @@ sub send_cldap_netlogon ($$$$) {
 		}
 	>);
 
-	my $pdu_req = $asn_cldap_req->encode( 
+	my $pdu_req = $asn_cldap_req->encode(
 				msgid => 0,
-				basedn => "", 
+				basedn => "",
 				scope => 0,
 				dereference => 0,
 				sizelimit => 0,
@@ -171,7 +173,7 @@ sub send_cldap_netlogon ($$$$) {
 #*/
 
 sub pull_netlogon_string (\$$$) {
-	
+
 	my ($ret, $ptr, $str) = @_;
 
 	my $pos = $ptr;
@@ -182,7 +184,7 @@ sub pull_netlogon_string (\$$$) {
 	my $retp = pack("x$MAX_DNS_LABEL");
 
 	do {
-	
+
 		$ptr = unpack("c", substr($str, $pos, 1));
 		$pos++;
 
@@ -268,9 +270,9 @@ sub guid_to_string ($) {
 		printf("invalid length: %d\n", $len);
 		return undef;
 	}
-	my $string = sprintf "%08X-%04X-%04X-%02X%02X-%02X%02X%02X%02X%02X%02X", 
-		unpack("I", $guid), 
-		unpack("S", substr($guid, 4, 2)), 
+	my $string = sprintf "%08X-%04X-%04X-%02X%02X-%02X%02X%02X%02X%02X%02X",
+		unpack("I", $guid),
+		unpack("S", substr($guid, 4, 2)),
 		unpack("S", substr($guid, 6, 2)),
 		unpack("C", substr($guid, 8, 1)),
 		unpack("C", substr($guid, 9, 1)),
@@ -279,7 +281,7 @@ sub guid_to_string ($) {
 		unpack("C", substr($guid, 12, 1)),
 		unpack("C", substr($guid, 13, 1)),
 		unpack("C", substr($guid, 14, 1)),
-		unpack("C", substr($guid, 15, 1)); 
+		unpack("C", substr($guid, 15, 1));
 	return lc($string);
 }
 
@@ -336,13 +338,13 @@ sub recv_cldap_netlogon ($\$) {
 		}
 	>);
 
-	my $asn1_rep =  $asn_cldap_rep->decode($pdu_out) || 
-			$asn_cldap_rep_fail->decode($pdu_out) || 
+	my $asn1_rep =  $asn_cldap_rep->decode($pdu_out) ||
+			$asn_cldap_rep_fail->decode($pdu_out) ||
 			die "failed to decode pdu: $@";
 
 	if ($asn1_rep->{'error_code'} == 0) {
 		$$return_string = $asn1_rep->{'val'};
-	} 
+	}
 
 	return $ret;
 }
@@ -412,11 +414,11 @@ sub display_cldap_reply {
 	printf("Pre-Win2k Domain:\t%s\n", $hash{netbios_domain});
 	printf("Pre-Win2k Hostname:\t%s\n", $hash{netbios_hostname});
 
-	if ($hash{unk}) { 
-		printf("Unk:\t\t\t%s\n", $hash{unk}); 
+	if ($hash{unk}) {
+		printf("Unk:\t\t\t%s\n", $hash{unk});
 	}
-	if ($hash{user_name}) { 
-		printf("User name:\t%s\n", $hash{user_name}); 
+	if ($hash{user_name}) {
+		printf("User name:\t%s\n", $hash{user_name});
 	}
 
 	printf("Server Site Name:\t%s\n", $hash{server_site_name});

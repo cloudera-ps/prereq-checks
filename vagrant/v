@@ -26,6 +26,7 @@ while (( "$#" )); do
     case $KEY in
         up)
             ln -f ../../prereq-check-single.sh
+            ln -f ../../lib/security/cldap.pl
             vagrant up
             echo "Connecting to VM (press CTRL-d to exit)..."
             vagrant ssh
@@ -34,7 +35,7 @@ while (( "$#" )); do
             vagrant suspend
             ;;
         clean)
-            vagrant destroy 
+            vagrant destroy
             ;;
         -h|--help)
             usage
