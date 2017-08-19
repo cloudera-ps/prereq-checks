@@ -548,7 +548,7 @@ function check_addc() {
     # the directory of the script
     DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
     # the temp directory used, within $DIR
-    WORK_DIR=`mktemp -d -p ${DIR}`
+    WORK_DIR=$(mktemp -d -p "${DIR}")
     # check if tmp dir was created
     if [[ ! ${WORK_DIR} || ! -d ${WORK_DIR} ]]; then
         echo "Could not create temp dir"
@@ -557,27 +557,27 @@ function check_addc() {
 
     function cleanup {
         # FIXME This is dangerous!
-        rm -rf ${WORK_DIR}
+        rm -rf "${WORK_DIR}"
     }
     trap cleanup EXIT
 
-    dig -t SRV _kerberos_tcp.${DOMAIN} > ${WORK_DIR}/dig1.tmp
-    AC=`cat ${WORK_DIR}/dig1.tmp | grep "AUTHORITY: 1" | wc -l`
+    dig -t SRV "_kerberos_tcp.${DOMAIN}" > "${WORK_DIR}/dig1.tmp"
+    AC=$(grep -c "AUTHORITY: 1" "${WORK_DIR}/dig1.tmp")
     if [[ ${AC} -eq "1" ]]; then
-        AUTH=`cat ${WORK_DIR}/dig1.tmp | grep -A1 "AUTHORITY SECTION:" | tail -n 1`
-        SOAQ=`echo ${AUTH} | grep SOA | wc -l`
+        AUTH=$(grep -A1 "AUTHORITY SECTION:" "${WORK_DIR}/dig1.tmp" | tail -n 1)
+        SOAQ=$(echo "${AUTH}" | grep -c SOA)
         if [[ ${SOAQ} -eq "1" ]]; then
-            DC=`echo ${AUTH} | awk '{print $5}' | sed 's/.$//'`
-            perl /tmp/prereq-checks-cldap.pl ${DOMAIN} -s ${DC} > ${WORK_DIR}/dc.tmp
-            SITEN=`cat ${WORK_DIR}/dc.tmp | grep --text "Server Site Name:" | awk '{print $NF}'`
-            dig @${DC} -t SRV _ldap._tcp.${SITEN}._sites.dc._msdcs.${DOMAIN} > ${WORK_DIR}/dig2.tmp
+            DC=$(echo "${AUTH}" | awk '{print $5}' | sed 's/.$//')
+            perl /tmp/prereq-checks-cldap.pl "${DOMAIN}" -s "${DC}" > "${WORK_DIR}/dc.tmp"
+            SITEN=$(grep --text "Server Site Name:" "${WORK_DIR}/dc.tmp" | awk '{print $NF}')
+            dig "@${DC}" -t SRV "_ldap._tcp.${SITEN}._sites.dc._msdcs.${DOMAIN}" > "${WORK_DIR}/dig2.tmp"
 
             echo -e "AD Domain\t\t\t: ${DOMAIN}"
             echo -e "Authoritative Domain Controller\t: ${DC}"
             echo -e "Site Name\t\t\t: ${SITEN}"
             echo -e "-----------------------------------------------------------------------------"
             echo -e "# _service._proto.name.\t\tTTL\tclass\tSRV\tpriority\tweight\tport\ttarget."
-            cat ${WORK_DIR}/dig2.tmp | grep -A 100 "ANSWER SECTION" | grep -B 100 "Query time" | sed '1d' | sed '$d'
+            grep -A 100 "ANSWER SECTION" "${WORK_DIR}/dig2.tmp" | grep -B 100 "Query time" | sed '1d' | sed '$d'
         fi
     else
         echo "DOMAIN NOT FOUND"
@@ -586,7 +586,7 @@ function check_addc() {
 
 function check_privs() {
     print_header "Prerequisite checks: Direct to AD integration:"
-    ldapsearch -x -H ${ARG_LDAPURI} -D ${ARG_BINDDN} -b "${ARG_SEARCHBASE}"  -L -w ${ARG_USERPSWD} > /dev/zero 2>/dev/zero
+    ldapsearch -x -H "${ARG_LDAPURI}" -D "${ARG_BINDDN}" -b "${ARG_SEARCHBASE}"  -L -w "${ARG_USERPSWD}" > /dev/zero 2>/dev/zero
     SRCH_RESULT=$?
     if [ $SRCH_RESULT -eq 0 ]; then
         state "User exists" 0
@@ -599,11 +599,11 @@ objectClass: user
 EOFILE
         # NOTE: Heredoc requires the above spacing/format or it won't work.
 
-        ldapadd -x -H ${ARG_LDAPURI} -a -D ${ARG_BINDDN} -f /tmp/prereq-check.ldif -w ${ARG_USERPSWD} > /dev/zero 2>/dev/zero
+        ldapadd -x -H "${ARG_LDAPURI}" -a -D "${ARG_BINDDN}" -f /tmp/prereq-check.ldif -w "${ARG_USERPSWD}" > /dev/zero 2>/dev/zero
         ADD_RESULT=$?
         if [ $ADD_RESULT -eq 0 ]; then
             state "Has delegated privileges to add a new user on the OU" 0
-            ldapdelete -H ${ARG_LDAPURI} -D ${ARG_BINDDN} "CN=Cloudera User,${ARG_SEARCHBASE}" -w ${ARG_USERPSWD}
+            ldapdelete -H "${ARG_LDAPURI}" -D "${ARG_BINDDN}" "CN=Cloudera User,${ARG_SEARCHBASE}" -w "${ARG_USERPSWD}"
             DEL_RESULT=$?
             if [ $DEL_RESULT -eq 0 ]; then
                 state "Has delegated privileges to delete a user on the OU" 0
@@ -872,6 +872,7 @@ function check_database() {
     local mysql_com
 
     mysql_ent=$(rpm -q --queryformat='%{VERSION}' mysql-commercial-server)
+    # shellcheck disable=SC2181
     if [[ $? -eq 0 ]]; then
         mysql_rpm=$(rpm -q mysql-commercial-server)
         [[ $mysql_ent =~ $VERSION_PATTERN ]]
@@ -879,6 +880,7 @@ function check_database() {
     fi
 
     mysql_com=$(rpm -q --queryformat='%{VERSION}' mysql-community-server)
+    # shellcheck disable=SC2181
     if [[ $? -eq 0 ]]; then
         mysql_rpm=$(rpm -q mysql-community-server)
         [[ $mysql_com =~ $VERSION_PATTERN ]]

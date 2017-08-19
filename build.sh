@@ -8,47 +8,47 @@
 IN_FILE=prereq-check-dev.sh
 OUT_FILE=prereq-check.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-headerline=`grep "^# Include libs (START)" $IN_FILE -n | cut -d':' -f1`
-footerline=`grep "^# Include libs (STOP)"  $IN_FILE -n | cut -d':' -f1`
+headerline=$(grep "^# Include libs (START)" "$IN_FILE" -n | cut -d':' -f1)
+footerline=$(grep "^# Include libs (STOP)"  "$IN_FILE" -n | cut -d':' -f1)
 
 # Get all the content from $IN_FILE up to the header line to $OUT_FILE.
-head -n$(($headerline-1)) $IN_FILE > $OUT_FILE
+head -n$((headerline-1)) "$IN_FILE" > "$OUT_FILE"
 
 # Insert comment and link to the latest single file script (what we're building
 # here) to $OUT_FILE.
 {   echo "# Latest version at:"
     echo "#   https://raw.githubusercontent.com/cloudera-ps/prereq-checks/master/prereq-check.sh"
     echo
-} >> $OUT_FILE
+} >> "$OUT_FILE"
 
 cldap=lib/security/cldap.pl
-{   echo "# `basename \"$cldap\"` ------------------------------------------------"
+{   echo "# $(basename "$cldap") ------------------------------------------------"
 
     echo "cat << 'EOF' > /tmp/prereq-checks-cldap.pl"
     cat "$cldap"
     echo "EOF"
     echo
-} >> $OUT_FILE
+} >> "$OUT_FILE"
 
 # Loop through each of the Bash script dependencies in lib/ and embedded them in
 # $OUT_FILE.
 for lib in $DIR/lib/{security/,}*.sh; do
-    {   echo "# `basename \"$lib\"` ------------------------------------------------"
+    {   echo "# $(basename "$lib") ------------------------------------------------"
         cat "$lib"
         echo
-    } >> $OUT_FILE
+    } >> "$OUT_FILE"
 done
 
 # Get the rest of the contents from $IN_FILE from footer line onwards to
 # $OUT_FILE.
 {   echo "# $IN_FILE (main) ------------------------------------------------"
-    tail -n+$(($footerline+1)) $IN_FILE
-} >> $OUT_FILE
-chmod +x $OUT_FILE
+    tail -n+$((footerline+1)) "$IN_FILE"
+} >> "$OUT_FILE"
+chmod +x "$OUT_FILE"
 
 echo "Wrote to $OUT_FILE"
 
 # Update hard links for Vagrant test boxes
 for subdir in vagrant/*/; do
-    ln -vf prereq-check.sh $subdir
+    ln -vf prereq-check.sh "$subdir"
 done
