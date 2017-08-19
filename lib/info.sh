@@ -34,19 +34,7 @@ function print_cpu_and_ram() {
     print_label "RAM" "$(awk '/^MemTotal:/ { printf "%.2f", $2/1024/1024 ; exit}' /proc/meminfo)G"
 }
 
-function print_disks() {
-    echo "Disks:"
-    for d in `ls /dev/{sd?,xvd?} 2>/dev/null`; do
-        pad; echo -n "$d  "
-        sudo fdisk -l $d 2>/dev/null | grep "^Disk /dev/" | cut -d' ' -f3-4 | cut -d',' -f1
-    done
-
-    echo "Mount:"
-    findmnt -lo source,target,fstype,options | grep '^/dev' | \
-        while read line; do
-            pad; echo $line
-        done
-
+function print_disks() (
     function data_mounts() {
         while read source target fstype options; do
             local NOATIME=false
@@ -91,7 +79,16 @@ function print_disks() {
             esac
         done
     }
-
+    echo "Disks:"
+    for d in `ls /dev/{sd?,xvd?} 2>/dev/null`; do
+        pad; echo -n "$d  "
+        sudo fdisk -l $d 2>/dev/null | grep "^Disk /dev/" | cut -d' ' -f3-4 | cut -d',' -f1
+    done
+    echo "Mount:"
+    findmnt -lo source,target,fstype,options | grep '^/dev' | \
+        while read line; do
+            pad; echo $line
+        done
     echo "Data mounts:"
     local DATA_MOUNTS=$( findmnt -lno source,target,fstype,options | \
         grep -E '[[:space:]]/data' | data_mounts )
@@ -100,28 +97,26 @@ function print_disks() {
     else
         local IFS='|'
         echo ${DATA_MOUNTS} | while read line; do
-        pad; echo $line
-    done
-fi
-}
+            pad; echo $line
+        done
+    fi
+)
 
-function print_free_space() {
+function print_free_space() (
+    function free_space() {
+        # Pick "Avail" column as "Free space:"
+        # $ df -Ph /opt
+        # Filesystem      Size  Used Avail Use% Mounted on
+        # /dev/sda1        99G  1.8G   92G   2% /
+        local path=$1
+        local free=`df -Ph $path | tail -1 | awk '{print $4}'`
+        pad
+        printf "%-9s %s\n" $path $free
+    }
     echo "Free space:"
     free_space /opt
     free_space /var/log
-}
-
-function free_space() {
-    # Pick "Avail" column as "Free space:"
-    #
-    # $ df -Ph /opt
-    # Filesystem      Size  Used Avail Use% Mounted on
-    # /dev/sda1        99G  1.8G   92G   2% /
-    local path=$1
-    local free=`df -Ph $path | tail -1 | awk '{print $4}'`
-    pad
-    printf "%-9s %s\n" $path $free
-}
+)
 
 function print_cloudera_rpms() {
     local rpms=`echo -e "$RPM_QA" | grep "^cloudera-"`
