@@ -1,1 +1,3 @@
 .vagrant/
+cldap.pl
+prereq-check-single.sh

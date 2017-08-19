@@ -33,12 +33,9 @@ VER=1.3.0
 # Do not remove the place marker "Include libs (START|STOP)" comments. They are
 # place markers for generating the single file script.
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-# shellcheck source=lib/utils.sh
-. "$DIR/lib/utils.sh"
-# shellcheck source=lib/checks.sh
-. "$DIR/lib/checks.sh"
-# shellcheck source=lib/info.sh
-. "$DIR/lib/info.sh"
+for lib in $DIR/lib/{security/,}*.sh; do
+    source $lib
+done
 # Include libs (STOP)  --------------------------------------------------------
 
 BANNER="Cloudera Manager & CDH Prerequisites Checks v$VER"
