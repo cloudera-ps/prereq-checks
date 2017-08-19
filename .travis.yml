@@ -6,9 +6,18 @@ addons:
     packages:
     - shellcheck
 script:
-    - shellcheck prereq-check-dev.sh -x
-    - shellcheck lib/info.sh
-    - shellcheck lib/utils.sh
-    # - shellcheck lib/checks.sh
-    # - shellcheck lib/security/security-checks.sh
-    - ./prereq-check.sh
+- shellcheck prereq-check-dev.sh -x
+- shellcheck lib/info.sh
+- shellcheck lib/utils.sh
+# - shellcheck lib/checks.sh
+# - shellcheck lib/security/security-checks.sh
+- ./build.sh && ./prereq-check.sh
+deploy:
+  provider: releases
+  api_key:
+    secure: ZypYhdtOi/dgmTFrUFEuSNNLHhI9WCNFSc01lZUUYijRoGPonJTUVbTSiJqMebaG8teFdAxAlDP1stOqPbppsNLDjztGf6ZcAP7rXzaPO7xDXLEQiAh/T4uGAs7cRk6qUrDc7EkwyQ/Q4KYmtlMrOBIUo4JFPL8IUogE8d5hUI5viukhyBEOgpKJDVF7aZoCvg7J4xlOMq7xOOUpmMTC3+VkSXGgCWYisg1kAPohJC0DukMdAAYkmkntUA5/5kPrTk0vs8snWNP8SL5tGxtHNXoLA0zGKQdhA4JcC9LrahXHSx1b2BTwzVQB6cOrxhCeGa3DCQDSQl7CnRiVeM0ZqyoBCFsrcrhoMN9EmKlDN20+yW7stukqmwL5xJAvW2gdzdbZkrWtVdjaD3XD4Qq2aku3op9qqkbQiWjQPTO4r8EXMnwSawQXA6fsINaQgWb3eubvaILP3DxzHHI53RXW1m6txxEaUTtLFvvR+ZTJ06g2Ds0nf6Y2RXORSl1tQFNDDpXhc3mVOx0MdgcWNruArM8r3qX6ERHoqhkNfl/YZKtRX3Ab6c0biWkirXytk6GiQYBKhqXFWa6MNegPXNEJ6WfEx+old8QesFnxp9NEV4M+1VfVzB9dm4SL/BeDIFbWZrjFqbrLOWFixjvGaGO41Z5BlXeclvh9iavJ5VBoGCA=
+  file: prereqs-check.sh
+  skip_cleanup: true
+  on:
+    repo: cloudera-ps/prereq-checks
+    tags: true
