@@ -25,7 +25,7 @@ while (( "$#" )); do
     KEY=$1
     case $KEY in
         up)
-            ln -f ../../prereq-check-single.sh
+            ln -f ../../prereq-check.sh
             vagrant up
             echo "Connecting to VM (press CTRL-d to exit)..."
             vagrant ssh

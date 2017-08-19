@@ -3,13 +3,13 @@
 Bash script for displaying relevant system information and performing
 prerequisite checks for Cloudera Manager & CDH installation.
 
-Motivation: Ensuring that the long list of required and recommended
+**Motivation**: Ensuring that the long list of required and recommended
 prerequisites are correctly applied during a [Hadoop Cluster
 Deployment](http://www.cloudera.com/content/www/en-us/services-support/professional-services/cluster-certification.html)
 (or similar) engagement is manual, time-consuming, and error-prone (not to
 mention mind-numbing).
 
-Non-Goals: This is not intended to replace or compete with the
+**Non-Goals**: This is not intended to replace or compete with the
 [Cloudera Support Interface (CSI)](http://blog.cloudera.com/blog/2014/02/secrets-of-cloudera-support-inside-our-own-enterprise-data-hub/),
 which includes a detailed cluster validation report.
 
@@ -40,7 +40,7 @@ the multiple target hosts.
 1. For using the distributed mode, run
 `    yum install ansible`
 2. For using the AD domain controller checks, run
-`    yum install perl-Convert-ASN1`
+`    yum install perl-Convert-ASN1 bind-utils`
 3. For using the AD delegated user privilege checks, run
 `    yum install openldap-clients`
 
@@ -48,48 +48,51 @@ the multiple target hosts.
 
 Running the script is easy as it is intentionally written in Bash to avoid any
 dependencies. This is to avoid dependency hell in restrictive customer
-environments.
+environments. It does not run on Mac OS. Tested on RHEL/CentOS 6.7 and 7.3 - see the
+[vagrant/](vagrant/) subfolder for details. Requires root/superuser permissions
+to run.
 
-Note that it does not run on Mac OS and has only been tested on RHEL/CentOS 6.5
-and 7.3 so far. Your Mileage May Vary.
+### Option A - Dev version
 
-It requires root/superuser permissions for some commands.
+To run:
 
-First check out the repository and switch into the newly created directory:
+    ./prereq-check-dev.sh
 
-    git clone https://github.com/cloudera-ps/prereq-checks.git
-    cd prereq-checks
+This requires the libraries in `lib/`, which includes both Bash and Perl
+libraries.
 
-### Option A
+### Option B - Single file version
 
-Simply execute the script:
+To build/update the single file version of the script, run:
+
+    ./build.sh
+
+This produces the file `prereq-check.sh`, same as the 'dev' version but with all
+the libs concatenated into this single file for easier handling. To run:
 
     ./prereq-check.sh
 
-It requires the libraries in `lib/`, as breaking down the code into several
-files makes them easier to maintain. If you rather copy around a single file
-instead, use Option B.
+## Usage
 
-### Option B
+```
+$ ./prereq-check.sh -h
+NAME:
+  prereq-check.sh - Cloudera Manager & CDH Prerequisites Checks v1.4.1
 
-To build the single file version of the script, run:
+SYNOPSIS:
+  prereq-check.sh [options]
 
-    ./build-single.sh
+OPTIONS:
+  -h, --help
+    Show this message
 
-This produces the file `prereq-check-single.sh`, which is the exact same code
-just with all the libs concatenated into a single file so it's easier to handle.
-Simply execute it like in Option A:
+  -a, --addc domain
+    Run tests against Active Directory Domain Controller
 
-    ./prereq-check-single.sh
-
-## Invocations
-
-| Command | |
-| --- | --- |
-| ./prereq-check.sh | run system check (default) |
-| ./prereq-check.sh --help | show usage |
-| ./prereq-chesk.sh --addc &lt;domain&gt; | run AD domain controller related checks |
-| ./prereq-chesk.sh --usertest &lt;domain&gt; | run tests against Active Directory delegated user for Direct to AD integration |
+  -p, --privilegetest ldapURI binddn searchbase bind_user_password
+    Run tests against Active Directory delegated user for Direct to AD integration
+    http://blog.cloudera.com/blog/2014/07/new-in-cloudera-manager-5-1-direct-active-directory-integration-for-kerberos-authentication/
+```
 
 ## Running it with Ansible
 

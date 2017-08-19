@@ -16,6 +16,6 @@ Vagrant.configure("2") do |config|
   config.vm.provision "shell", inline: <<-SHELL
     yum install -y vim
     echo "set background=dark" > /home/vagrant/.vimrc
-    ln -s /vagrant/prereq-check-single.sh
+    ln -s /vagrant/prereq-check.sh
   SHELL
 end

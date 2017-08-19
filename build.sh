@@ -5,8 +5,8 @@
 # Having just one file makes it easier to distribute and work with, whereas
 # keeping multiple files for development makes it easier to maintain.
 
-IN_FILE=prereq-check.sh
-OUT_FILE="${IN_FILE%.*}-single.sh"
+IN_FILE=prereq-check-dev.sh
+OUT_FILE=prereq-check.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 headerline=`grep "^# Include libs (START)" $IN_FILE -n | cut -d':' -f1`
 footerline=`grep "^# Include libs (STOP)"  $IN_FILE -n | cut -d':' -f1`
@@ -17,7 +17,7 @@ head -n$(($headerline-1)) $IN_FILE > $OUT_FILE
 # Insert comment and link to the latest single file script (what we're building
 # here) to $OUT_FILE.
 {   echo "# Latest version at:"
-    echo "#   https://raw.githubusercontent.com/cloudera-ps/prereq-checks/master/prereq-check-single.sh"
+    echo "#   https://raw.githubusercontent.com/cloudera-ps/prereq-checks/master/prereq-check.sh"
     echo
 } >> $OUT_FILE
 
@@ -46,7 +46,9 @@ done
 } >> $OUT_FILE
 chmod +x $OUT_FILE
 
+echo "Wrote to $OUT_FILE"
+
 # Update hard links for Vagrant test boxes
 for subdir in vagrant/*/; do
-    ln -f prereq-check-single.sh $subdir
+    ln -vf prereq-check.sh $subdir
 done

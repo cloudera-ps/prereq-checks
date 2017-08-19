@@ -69,20 +69,20 @@ Connecting to VM (press CTRL-d to exit)...
 Last login: Tue Aug 15 07:24:24 2017 from 192.168.9.1
 ```
 
-The combined `prereq-check-single.sh` file should be automatically linked in
-the home directory:
+The combined `prereq-check.sh` file should be automatically linked in the
+home directory:
 
 ```
 [vagrant@centos67 ~]$ ls -l
 total 0
-lrwxrwxrwx. 1 root root 31 Aug 15 07:15 prereq-check-single.sh -> /vagrant/prereq-check-single.sh
+lrwxrwxrwx. 1 root root 31 Aug 15 07:15 prereq-check.sh -> /vagrant/prereq-check.sh
 [vagrant@centos67 ~]$
 ```
 
 Which one can then execute directly for testing:
 
 ```
-[vagrant@centos67 ~]$ ./prereq-check-single.sh
+[vagrant@centos67 ~]$ ./prereq-check.sh
 Cloudera Manager & CDH Prerequisites Checks v1.3.0
 
 System information
@@ -110,8 +110,8 @@ DNS server:    192.168.9.2
 ...
 ```
 
-Changes made to the original "prereq-check-single.sh" file on the host are
-immediately reflected in the VM, and vice versa.
+Changes made to the original "prereq-check.sh" file on the host are immediately
+reflected in the VM, and vice versa.
 
 #### Suspending the VM
 
