@@ -21,6 +21,15 @@ head -n$(($headerline-1)) $IN_FILE > $OUT_FILE
     echo
 } >> $OUT_FILE
 
+cldap=lib/security/cldap.pl
+{   echo "# `basename \"$cldap\"` ------------------------------------------------"
+
+    echo "cat << 'EOF' > /tmp/prereq-checks-cldap.pl"
+    cat "$cldap"
+    echo "EOF"
+    echo
+} >> $OUT_FILE
+
 # Loop through each of the Bash script dependencies in lib/ and embedded them in
 # $OUT_FILE.
 for lib in $DIR/lib/{security/,}*.sh; do
@@ -40,5 +49,4 @@ chmod +x $OUT_FILE
 # Update hard links for Vagrant test boxes
 for subdir in vagrant/*/; do
     ln -f prereq-check-single.sh $subdir
-    ln -f lib/security/cldap.pl  $subdir
 done

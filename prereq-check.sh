@@ -27,12 +27,17 @@
 # You are responsible for reviewing and testing any scripts you run thoroughly
 # before use in any non-testing environment.
 
-VER=1.4.0
+VER=1.4.1
 
 if [ "$(uname)" = 'Darwin' ]; then
     echo -e "\nThis tool runs on Linux only, not Mac OS."
     exit 1
 fi
+
+function cleanup {
+    rm -f /tmp/prereq-checks-cldap.pl
+}
+trap cleanup EXIT
 
 # Include libs (START) --------------------------------------------------------
 # Do not remove the place marker "Include libs (START|STOP)" comments. They are
