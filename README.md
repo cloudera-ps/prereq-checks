@@ -50,9 +50,9 @@ the multiple target hosts.
 
 Running the script is easy as it is intentionally written in Bash to avoid any
 dependencies. This is to avoid dependency hell in restrictive customer
-environments. It does not run on Mac OS. Tested on RHEL/CentOS 6.7 and 7.3 - see the
-[vagrant/](vagrant/) subfolder for details. Requires root/superuser permissions
-to run.
+environments. It does not run on Mac OS. Tested on RHEL/CentOS 6.7 and 7.3 - see
+the [vagrant/](vagrant/) subfolder for details. Requires root/superuser
+permissions to run.
 
 ### Option A - Dev version
 
@@ -61,7 +61,7 @@ To run:
     ./prereq-check-dev.sh
 
 This requires the libraries in `lib/`, which includes both Bash and Perl
-libraries.
+libraries. See Usage for details.
 
 ### Option B - Single file version
 
@@ -69,10 +69,46 @@ To build/update the single file version of the script, run:
 
     ./build.sh
 
-This produces the file `prereq-check.sh`, same as the 'dev' version but with all
-the libs concatenated into this single file for easier handling. To run:
+This produces the file `prereq-check.sh`. See Usage for details.
 
-    ./prereq-check.sh
+Usage for `build.sh`:
+
+```
+% ./build.sh -h
+NAME:
+  build.sh - prereq-check.sh build script
+
+SYNOPSIS:
+  build.sh [options]
+
+OPTIONS:
+  -h, --help
+    Show this message
+
+  -a, --auto-build
+    Watch dependencies for changes and automatically rebuild on changes
+```
+
+With the `-a` option, the build script can watch dependencies and automatically
+rebuild the combined `prereq-check.sh`. It also runs `shellcheck` (Bash Lint) if
+it's installed. For example:
+
+```
+% ./build.sh -a
+Sun Aug 20 11:21:19 SGT 2017 [INFO] Found 'shellcheck', will run post-build Bash lint
+Sun Aug 20 11:21:19 SGT 2017 [INFO] Watching dependencies for changes...
+Sun Aug 20 11:21:32 SGT 2017 [INFO] Wrote to prereq-check.sh and updated Vagrant hard-links
+Sun Aug 20 11:21:32 SGT 2017 [INFO] Running 'shellcheck prereq-check.sh'...
+Sun Aug 20 11:21:33 SGT 2017 [INFO] shellcheck: All good
+Sun Aug 20 11:21:41 SGT 2017 [INFO] Wrote to prereq-check.sh and updated Vagrant hard-links
+Sun Aug 20 11:21:41 SGT 2017 [INFO] Running 'shellcheck prereq-check.sh'...
+
+In prereq-check.sh line 1434:
+unused_var=
+^-- SC2034: unused_var appears unused. Verify it or export it.
+
+Sun Aug 20 11:21:42 SGT 2017 [INFO] shellcheck: Found above warnings/errors
+```
 
 ## Usage
 

@@ -6,7 +6,7 @@ addons:
     packages:
     - shellcheck
 script:
-- shellcheck prereq-check-dev.sh -x
+- shellcheck prereq-check-dev.sh
 - shellcheck build.sh
 - shellcheck lib/info.sh
 - shellcheck lib/utils.sh
