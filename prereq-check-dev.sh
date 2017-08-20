@@ -27,6 +27,9 @@
 # You are responsible for reviewing and testing any scripts you run thoroughly
 # before use in any non-testing environment.
 
+# http://redsymbol.net/articles/unofficial-bash-strict-mode/
+set -u
+
 VER=1.4.2
 
 if [ "$(uname)" = 'Darwin' ]; then
@@ -73,6 +76,10 @@ function usage() {
     exit 1
 }
 
+export DEBUG=
+OPT_USAGE=
+OPT_DOMAIN=
+OPT_USER=
 if [[ $# -gt 0 ]]; then
     KEY=$1
     case ${KEY} in
