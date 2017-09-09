@@ -30,7 +30,7 @@
 # http://redsymbol.net/articles/unofficial-bash-strict-mode/
 set -u
 
-VER=1.4.3
+VER=1.4.4
 
 if [ "$(uname)" = 'Darwin' ]; then
     echo -e "\nThis tool runs on Linux only, not Mac OS."
@@ -1049,6 +1049,12 @@ function check_network() (
     # reverse (ip address to hostname) resolutions.
     # Note that an additional `.' in the PTR ANSWER SECTION.
     function check_dns() {
+        which dig 2&>/dev/null
+        if [ $? -eq 2 ]; then
+            state "Network: 'dig' not found, skipping DNS checks. Run 'sudo yum install bind-utils' to fix." 2
+            return
+        fi
+
         local fqdn
         local fwd_lookup
         local rvs_lookup
@@ -1078,7 +1084,7 @@ function check_firewall() {
     fi
 }
 
-function checks() {
+function checks() (
     print_header "Prerequisite checks"
     reset_service_state
     check_os
@@ -1087,7 +1093,7 @@ function checks() {
     check_java
     check_database
     check_jdbc_connector
-}
+)
 
 # info.sh ------------------------------------------------
 #!/usr/bin/env bash
