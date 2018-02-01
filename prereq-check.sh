@@ -986,7 +986,7 @@ function check_network() (
             while read -r line; do
                 entry=$(echo "$line" | grep -Ev "^#|^ *$")
                 if [ ! "$entry" = "" ]; then
-                    set -- "$(echo "$line" | awk '{ print $1, $2 }')"
+                    set -- $(echo "$line" | awk '{ print $1, $2 }')
                     if [ "$1" = "127.0.0.1" ] || [ "$1" = "::1" ] && [ "$2" = "localhost" ]; then
                         :
                     else
