@@ -1069,12 +1069,24 @@ function check_network() (
             state "Network: Inconsistent name resolution of $fqdn. Check DNS configuration" 1
         fi
     }
+    
+    
+    function check_entropy() {
+        local entropy
+        entropy=$(cat /proc/sys/kernel/random/entropy_avail)
+                if [ "$entropy" -gt 500 ]; then
+                        state "System: Entropy is $entropy" 0
+                else
+                        state "System: Entropy should be more than 500, Actual: $entropy -- Please install rng-tools configure entropy" 1
+                fi
+        }
 
     check_ipv6
     check_hostname
     check_etc_hosts
     check_nscd_and_sssd
     check_dns
+    check_entropy
 )
 
 function check_firewall() {
