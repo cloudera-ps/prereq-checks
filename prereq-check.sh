@@ -1093,6 +1093,7 @@ function checks() (
     check_java
     check_database
     check_jdbc_connector
+    check_required_packages
 )
 
 # info.sh ------------------------------------------------
@@ -1418,6 +1419,61 @@ function get_service_state() {
         echo "$service_name installed: ${SERVICE_STATE['installed']}"
         echo "$service_name running:   ${SERVICE_STATE['running']}"
         echo "$service_name autostart: ${SERVICE_STATE['autostart']}"
+    fi
+}
+
+function detect_os() {
+    if [ -f /etc/os-release ]; then
+        # freedesktop.org and systemd
+        . /etc/os-release
+        OS=$NAME
+    elif type lsb_release >/dev/null 2>&1; then
+        # linuxbase.org
+        OS=$(lsb_release -si)
+    elif [ -f /etc/lsb-release ]; then
+        # For some versions of Debian/Ubuntu without lsb_release command
+        . /etc/lsb-release
+        OS=$DISTRIB_ID
+    elif [ -f /etc/debian_version ]; then
+        # Older Debian/Ubuntu/etc.
+        OS=Debian
+    elif [ -f /etc/SuSe-release ]; then
+        # Older SuSE/etc.
+        OS=$(head -1 /etc/SuSe-release)
+    elif [ -f /etc/redhat-release ]; then
+        # Older Red Hat, CentOS, etc.
+        OS=$(head -1 /etc/redhat-release)
+    fi
+}
+
+function check_required_packages() {
+    detect_os
+
+    if echo $OS | grep -q -i "\(CentOS\|Redhat\)"; then
+       yum list installed > /tmp/installed_packages.out 2>/dev/null
+       REQUIRED_PACKAGES_FILE=./opt/packages/os/centos/required.txt
+    elif echo $OS | grep -q -i "\(Debian\|Ubuntu\)"; then
+       apt list --installed > /tmp/installed_packages.out
+       REQUIRED_PACKAGES_FILE=./opt/packages/os/deb/required.txt
+    elif echo $OS | grep -q -i "Suse"; then
+       rpm -qa > /tmp/installed_packages.out
+       REQUIRED_PACKAGES_FILE=./opt/packages/os/suse/required.txt
+    else
+       echo "Could not detect OS distribution. Exiting"
+       return
+    fi
+
+    missing_packages=()
+    for p in $(grep -v "#" $REQUIRED_PACKAGES_FILE); do
+       if grep -q -i ${p} /tmp/installed_packages.out; then
+         missing_packages+=$p" "
+       fi
+    done
+
+    if [ ! -z ${#missing_packages[@]} ]; then
+      state "Packages: Required package(s) not installed: $missing_packages" 1
+    else
+      state "Packages: Required packages installed" 0
     fi
 }
 
