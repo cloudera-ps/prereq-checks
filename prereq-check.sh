@@ -697,7 +697,10 @@ function check_java() {
     #   excluldes JDK 1.8u40, JDK 1.8u45, and JDK 1.8u60
     for candidate_regex in "${JAVA_HOME_CANDIDATES[@]}"; do
         # shellcheck disable=SC2045
-        for candidate in $(ls -rvd "${candidate_regex}*" 2>/dev/null); do
+        # quotes were added around the regex.  This broke the listing
+        # so no matches could be found. Fixed this by removing quotes
+        # Note:  if regex strings can have spaces in the future, we need to account for this
+        for candidate in $(ls -rvd ${candidate_regex}* 2>/dev/null); do
             if [ -x "$candidate/bin/java" ]; then
                 VERSION_STRING=$("$candidate"/bin/java -version 2>&1)
                 RE_JAVA_GOOD='java[[:space:]]version[[:space:]]\"1\.([0-9])\.0_([0-9][0-9]*)\"'
