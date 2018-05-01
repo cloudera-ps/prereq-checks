@@ -1503,3 +1503,6 @@ else
     checks
     echo
 fi
+#check if hostname count is more than 15 chars
+source lib/security/security-checks.sh
+check_hnamecount
