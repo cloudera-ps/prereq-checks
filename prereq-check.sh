@@ -721,6 +721,9 @@ function check_java() {
                             state "Java: Unsupported Oracle Java: ${candidate}/bin/java" 1
                         elif [[ ${BASH_REMATCH[2]} -eq 60 ]]; then
                             state "Java: Unsupported Oracle Java: ${candidate}/bin/java" 1
+                        # Added check to WARN on version 75 as it has issues.  Needs test
+			elif [[ ${BASH_REMATCH[2]} -eq 75 ]]; then
+                            state "Java: Oozie will not work on this Java (OOZIE-2533): ${candidate}/bin/java" 2
                         else
                             state "Java: Supported Oracle Java: ${candidate}/bin/java" 0
                         fi
