@@ -775,7 +775,7 @@ function check_os() (
         file=$(find /sys/kernel/mm/ -type d -name '*transparent_hugepage')/defrag
         if [ -f "$file" ]; then
             local msg="System: $file should be disabled"
-            if fgrep -q "[never]" "$file"; then
+            if grep -F -q "[never]" "$file"; then
                 state "$msg" 0
             else
                 state "$msg. Actual: $(awk '{print $1}' "$file" | sed -e 's/\[//' -e 's/\]//')" 1
