@@ -221,7 +221,15 @@ function check_os() (
             state "System: /tmp mounted with noexec fails for CM versions older than 5.8.4, 5.9.2, and 5.10.0" 0
         fi
     }
-
+    function check_entropy() {
+        local entropy
+        entropy=$(cat /proc/sys/kernel/random/entropy_avail)
+        if [ "$entropy" -gt 500 ]; then
+            state "System: Entropy is $entropy" 0
+        else
+            state "System: Entropy should be more than 500, Actual: $entropy -- Please see https://bit.ly/2IoOj0K" 2
+        fi
+    }
     check_swappiness
     check_tuned
     check_thp
@@ -230,6 +238,7 @@ function check_os() (
     check_32bit_packages
     check_unneeded_services
     check_tmp_noexec
+	check_entropy
 )
 
 function check_database() {
@@ -434,7 +443,6 @@ function check_network() (
             state "Network: Inconsistent name resolution of $fqdn. Check DNS configuration" 1
         fi
     }
-
     check_ipv6
     check_hostname
     check_etc_hosts
