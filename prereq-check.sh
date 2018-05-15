@@ -873,7 +873,7 @@ function check_os() (
     check_32bit_packages
     check_unneeded_services
     check_tmp_noexec
-	check_entropy
+    check_entropy
 )
 
 function check_database() {
