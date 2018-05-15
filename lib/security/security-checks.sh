@@ -86,3 +86,13 @@ EOFILE
         state -e "Unrecognized error occured. Not able to connect to AD using\n\tLDAPURI: ${ARG_LDAPURI}\n\tBINDDN: ${ARG_BINDDN}\n\tSEARCHBASE: ${ARG_SEARCHBASE}\n\tand provided password" 1
     fi
 }
+function check_hnamecount(){
+#Check if hostname is greater than 15 chars
+HCOUNT="$(hostname |cut -d "." -f1 |wc -m)"
+if [[ $HCOUNT -le 16 ]];
+then
+state "hostname is within 15 chars" 0
+else
+state "Hostname count is more than 15 chars"
+fi
+}
