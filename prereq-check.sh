@@ -696,10 +696,7 @@ function check_java() {
     # JDK 8 minimum required version is JDK 1.8u31
     #   excluldes JDK 1.8u40, JDK 1.8u45, and JDK 1.8u60
     for candidate_regex in "${JAVA_HOME_CANDIDATES[@]}"; do
-        # shellcheck disable=SC2045
-        # quotes were added around the regex.  This broke the listing
-        # so no matches could be found. Fixed this by removing quotes
-        # Note:  if regex strings can have spaces in the future, we need to account for this
+        # shellcheck disable=SC2045,SC2086
         for candidate in $(ls -rvd ${candidate_regex}* 2>/dev/null); do
             if [ -x "$candidate/bin/java" ]; then
                 VERSION_STRING=$("$candidate"/bin/java -version 2>&1)
@@ -721,8 +718,7 @@ function check_java() {
                             state "Java: Unsupported Oracle Java: ${candidate}/bin/java" 1
                         elif [[ ${BASH_REMATCH[2]} -eq 60 ]]; then
                             state "Java: Unsupported Oracle Java: ${candidate}/bin/java" 1
-                        # Added check to WARN on version 75 as it has issues.  Needs test
-			elif [[ ${BASH_REMATCH[2]} -eq 75 ]]; then
+                        elif [[ ${BASH_REMATCH[2]} -eq 75 ]]; then
                             state "Java: Oozie will not work on this Java (OOZIE-2533): ${candidate}/bin/java" 2
                         else
                             state "Java: Supported Oracle Java: ${candidate}/bin/java" 0
