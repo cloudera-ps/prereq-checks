@@ -986,6 +986,8 @@ function check_network() (
             while read -r line; do
                 entry=$(echo "$line" | grep -Ev "^#|^ *$")
                 if [ ! "$entry" = "" ]; then
+                    # the following line ('set -- $(...)') can't be quoted
+                    # shellcheck disable=SC2046
                     set -- $(echo "$line" | awk '{ print $1, $2 }')
                     if [ "$1" = "127.0.0.1" ] || [ "$1" = "::1" ] && [ "$2" = "localhost" ]; then
                         :
