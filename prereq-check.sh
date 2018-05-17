@@ -1084,18 +1084,18 @@ function check_firewall() {
     fi
 }
 function check_firewall_ports(){
-	local localip=$(ip -4 route get 8.8.8.8 | awk {'print $7'} | tr -d '\n')
+    local localip=$(ip -4 route get 8.8.8.8 | awk {'print $7'} | tr -d '\n')
 	local serviceports=( 88 389 636 3268 3269 )
 	local portstatus
 
 	for port in ${serviceports[@]}; do
-		portstatus=$(bash -c 'exec 3<> /dev/tcp/'${localip}'/'${port}';echo $?' 2>/dev/null)
-		if [ "$portstatus" -eq 0 ]; then
-			state "Network: port $port is open" 0
-		else
-			state "Network: port $port is closed" 2
-		fi
-	done
+        portstatus=$(bash -c 'exec 3<> /dev/tcp/'${localip}'/'${port}';echo $?' 2>/dev/null)
+        if [ "$portstatus" -eq 0 ]; then
+            state "Network: port $port is open" 0
+	    else
+            state "Network: port $port is closed" 2
+        fi
+    done
 }
 function checks() (
     print_header "Prerequisite checks"
