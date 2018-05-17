@@ -453,8 +453,8 @@ function check_firewall_ports(){
     local serviceports=( 88 389 636 3268 3269 )
     local portstatus
 
-    for port in ${serviceports[@]}; do
-        portstatus=$(bash -c 'exec 3<> /dev/tcp/'${localip}'/'${port}';echo $?' 2>/dev/null)
+    for port in "${serviceports[@]}"; do
+        portstatus=$(bash -c 'exec 3<> /dev/tcp/"${localip}"/"${port}";echo $?' 2>/dev/null)
         if [ "$portstatus" -eq 0 ]; then
             state "Network: port $port is open" 0
         else
