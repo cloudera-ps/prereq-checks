@@ -856,22 +856,6 @@ function check_os() (
             state "System: /tmp mounted with noexec fails for CM versions older than 5.8.4, 5.9.2, and 5.10.0" 0
         fi
     }
-    
-    function check_firewall_ports(){
-        local localip=$(ip -4 route get 8.8.8.8 | awk {'print $7'} | tr -d '\n')
-        local serviceports=( 88 389 636 3268 3269 )
-        local portstatus
-
-        for port in ${serviceports[@]}; do
-            portstatus=$(exec 3<> /dev/tcp/${localip}/${port}&>/dev/null; echo $?) 
-            if [ "$portstatus" -eq 0 ]; then
-               echo port $port is open
-            else
-               echo port $port is closed
-            fi
-         done
-}
-
 
     check_swappiness
     check_tuned
@@ -881,7 +865,6 @@ function check_os() (
     check_32bit_packages
     check_unneeded_services
     check_tmp_noexec
-    check_firewall_ports
 )
 
 function check_database() {
@@ -1100,13 +1083,27 @@ function check_firewall() {
         _check_service_is_not_running 'Network' 'iptables'
     fi
 }
+function check_firewall_ports(){
+	local localip=$(ip -4 route get 8.8.8.8 | awk {'print $7'} | tr -d '\n')
+	local serviceports=( 88 389 636 3268 3269 )
+	local portstatus
 
+	for port in ${serviceports[@]}; do
+		portstatus=$(bash -c 'exec 3<> /dev/tcp/'${localip}'/'${port}';echo $?' 2>/dev/null)
+		if [ "$portstatus" -eq 0 ]; then
+			state "Network: port $port is open" 0
+		else
+			state "Network: port $port is closed" 2
+		fi
+	done
+}
 function checks() (
     print_header "Prerequisite checks"
     reset_service_state
     check_os
     check_network
     check_firewall
+	check_firewall_ports
     check_java
     check_database
     check_jdbc_connector
