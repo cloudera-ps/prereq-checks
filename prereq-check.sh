@@ -1084,9 +1084,11 @@ function check_firewall() {
     fi
 }
 function check_firewall_ports(){
-    local localip=$(ip -4 route get 8.8.8.8 | awk {'print $7'} | tr -d '\n')
-    local serviceports=( 88 389 636 3268 3269 )
+    local localip
+    local serviceports
     local portstatus
+    locallip=$(ip -4 route get 8.8.8.8 | awk {'print $7'} | tr -d '\n')
+    serviceports=( 88 389 636 3268 3269 )
 
     for port in "${serviceports[@]}"; do
         portstatus=$(bash -c 'exec 3<> /dev/tcp/"${localip}"/"${port}";echo $?' 2>/dev/null)
