@@ -1087,7 +1087,7 @@ function check_firewall_ports(){
     local localip
     local serviceports
     local portstatus
-    localip=$(ip -4 route get 8.8.8.8 | awk {'print $7'} | tr -d '\n')
+    localip=$(ip -4 route get 8.8.8.8 | awk "{"'print $7'"}" | tr -d '\n')
     serviceports=( 88 389 636 3268 3269 )
 
     for port in "${serviceports[@]}"; do
