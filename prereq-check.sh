@@ -699,34 +699,38 @@ function check_java() {
         # shellcheck disable=SC2045,SC2086
         for candidate in $(ls -rvd ${candidate_regex}* 2>/dev/null); do
             if [ -x "$candidate/bin/java" ]; then
-                VERSION_STRING=$("$candidate"/bin/java -version 2>&1)
-                RE_JAVA_GOOD='java[[:space:]]version[[:space:]]\"1\.([0-9])\.0_([0-9][0-9]*)\"'
-                RE_JAVA_BAD='openjdk[[:space:]]version[[:space:]]\"1\.[0-9]\.'
-                if [[ $VERSION_STRING =~ $RE_JAVA_GOOD ]]; then
-                    if [[ ${BASH_REMATCH[1]} -eq 7 ]]; then
-                        if [[ ${BASH_REMATCH[2]} -lt 55 ]]; then
-                            state "Java: Unsupported Oracle Java: ${candidate}/bin/java" 1
+                JDK_VERSION=$($candidate/bin/java -version 2>&1 | head -1 | awk '{print $NF}' | tr -d '"')
+                JDK_VERSION_REGEX='1\.([0-9])\.0_([0-9][0-9]*)'
+                JDK_TYPE=$($candidate/bin/java -version 2>&1 | head -2 | tail -1 | awk '{print $1}')
+                if [[ $JDK_TYPE = "Java(TM)" ]]; then
+                    if [[ $JDK_VERSION =~ $JDK_VERSION_REGEX ]]; then
+                        if [[ ${BASH_REMATCH[1]} -eq 7 ]]; then
+                            if [[ ${BASH_REMATCH[2]} -lt 55 ]]; then
+                                state "Java: Unsupported Oracle Java: ${candidate}/bin/java" 1
+                            else
+                                state "Java: Supported Oracle Java: ${candidate}/bin/java" 0
+                            fi
+                        elif [[ ${BASH_REMATCH[1]} -eq 8 ]]; then
+                            if [[ ${BASH_REMATCH[2]} -lt 31 ]]; then
+                                state "Java: Unsupported Oracle Java: ${candidate}/bin/java" 1
+                            elif [[ ${BASH_REMATCH[2]} -eq 40 ]]; then
+                                state "Java: Unsupported Oracle Java: ${candidate}/bin/java" 1
+                            elif [[ ${BASH_REMATCH[2]} -eq 45 ]]; then
+                                state "Java: Unsupported Oracle Java: ${candidate}/bin/java" 1
+                            elif [[ ${BASH_REMATCH[2]} -eq 60 ]]; then
+                                state "Java: Unsupported Oracle Java: ${candidate}/bin/java" 1
+                            elif [[ ${BASH_REMATCH[2]} -eq 75 ]]; then
+                                state "Java: Oozie will not work on this Java (OOZIE-2533): ${candidate}/bin/java" 2
+                            else
+                                state "Java: Supported Oracle Java: ${candidate}/bin/java" 0
+                            fi
                         else
-                            state "Java: Supported Oracle Java: ${candidate}/bin/java" 0
-                        fi
-                    elif [[ ${BASH_REMATCH[1]} -eq 8 ]]; then
-                        if [[ ${BASH_REMATCH[2]} -lt 31 ]]; then
                             state "Java: Unsupported Oracle Java: ${candidate}/bin/java" 1
-                        elif [[ ${BASH_REMATCH[2]} -eq 40 ]]; then
-                            state "Java: Unsupported Oracle Java: ${candidate}/bin/java" 1
-                        elif [[ ${BASH_REMATCH[2]} -eq 45 ]]; then
-                            state "Java: Unsupported Oracle Java: ${candidate}/bin/java" 1
-                        elif [[ ${BASH_REMATCH[2]} -eq 60 ]]; then
-                            state "Java: Unsupported Oracle Java: ${candidate}/bin/java" 1
-                        elif [[ ${BASH_REMATCH[2]} -eq 75 ]]; then
-                            state "Java: Oozie will not work on this Java (OOZIE-2533): ${candidate}/bin/java" 2
-                        else
-                            state "Java: Supported Oracle Java: ${candidate}/bin/java" 0
                         fi
                     else
-                        state "Java: Unsupported Oracle Java: ${candidate}/bin/java" 0
+                        state "Java: Unsupported Oracle Java: ${candidate}/bin/java" 1
                     fi
-                elif [[ $VERSION_STRING =~ $RE_JAVA_BAD ]]; then
+                elif [[ $JDK_TYPE = "OpenJDK" ]]; then
                     state "Java: Unsupported OpenJDK: ${candidate}/bin/java" 1
                 else
                     state "Java: Unsupported Unknown: ${candidate}/bin/java" 1
