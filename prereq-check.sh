@@ -1099,13 +1099,29 @@ function check_firewall() {
         _check_service_is_not_running 'Network' 'iptables'
     fi
 }
+function check_firewall_ports(){
+    local localip
+    local serviceports
+    local portstatus
+    localip=$(ip route get 1 | awk '{print $NF;exit}')
+    serviceports=( 88 389 636 3268 3269 )
 
+    for port in "${serviceports[@]}"; do
+        portstatus=$(bash -c 'exec 3<> /dev/tcp/"${localip}"/"${port}";echo $?' 2>/dev/null)
+        if [ "$portstatus" -eq 0 ]; then
+            state "Network: port $port is open" 0
+        else
+            state "Network: port $port is closed" 2
+        fi
+    done
+}
 function checks() (
     print_header "Prerequisite checks"
     reset_service_state
     check_os
     check_network
     check_firewall
+    check_firewall_ports
     check_java
     check_database
     check_jdbc_connector
