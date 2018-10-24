@@ -86,13 +86,13 @@ function print_disks() (
         sudo fdisk -l "$d" 2>/dev/null | grep "^Disk /dev/" | cut -d' ' -f3-4 | cut -d',' -f1
     done
     echo "Mount:"
-    findmnt -lo source,target,fstype,options | grep '^/dev' | \
+    findmnt -lo source,target,fstype,options | sort | grep '^/dev' | \
         while read -r line; do
             pad; echo "$line"
         done
     echo "Data mounts:"
     local DATA_MOUNTS
-    DATA_MOUNTS=$( findmnt -lno source,target,fstype,options | \
+    DATA_MOUNTS=$( findmnt -lno source,target,fstype,options | sort | \
         grep -E '[[:space:]]/data' | data_mounts )
     if [[ -z ${DATA_MOUNTS} ]]; then
         pad; echo "None found"
