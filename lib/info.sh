@@ -81,7 +81,7 @@ function print_disks() (
     }
     echo "Disks:"
     # shellcheck disable=SC2045
-    for d in $(ls /dev/{sd?,xvd?} 2>/dev/null | sort); do
+    for d in $(find /dev/{sd?,xvd?} -type b 2>/dev/null | sort); do
         pad; echo -n "$d  "
         sudo fdisk -l "$d" 2>/dev/null | grep "^Disk /dev/" | cut -d' ' -f3-4 | cut -d',' -f1
     done
