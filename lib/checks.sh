@@ -1,5 +1,13 @@
 #!/usr/bin/env bash
 
+function check_jce() {
+    if $( ${1}/bin/jrunscript -e 'exit (javax.crypto.Cipher.getMaxAllowedKeyLength("RC5") >= 256 ? 0 : 1);' > /dev/null 2>&1 ); then
+            state "Java: JCE Files are installed for Oracle Java: ${candidate}/bin/java" 0
+        else
+            state "Java: JCE Files are not installed for Oracle Java: ${candidate}/bin/java" 1
+        fi
+}
+
 function check_java() {
     # The following candidate list is from CM agent:
     # Starship/cmf/agents/cmf/service/common/cloudera-config.sh
@@ -74,6 +82,7 @@ function check_java() {
                                 state "Java: Unsupported Oracle Java: ${candidate}/bin/java" 1
                             else
                                 state "Java: Supported Oracle Java: ${candidate}/bin/java" 0
+                                check_jce ${candidate}
                             fi
                         elif [[ ${BASH_REMATCH[1]} -eq 8 ]]; then
                             if [[ ${BASH_REMATCH[2]} -lt 31 ]]; then
@@ -88,6 +97,7 @@ function check_java() {
                                 state "Java: Oozie will not work on this Java (OOZIE-2533): ${candidate}/bin/java" 2
                             else
                                 state "Java: Supported Oracle Java: ${candidate}/bin/java" 0
+                                check_jce ${candidate}
                             fi
                         else
                             state "Java: Unsupported Oracle Java: ${candidate}/bin/java" 1
