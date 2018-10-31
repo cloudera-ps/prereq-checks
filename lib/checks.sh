@@ -118,6 +118,18 @@ function check_os() (
         fi
     }
 
+    function check_overcommit_memory() {
+        # https://www.cloudera.com/documentation/enterprise/5-15-x/topics/impala_scalability.html#kerberos_overhead_memory_usage
+        local overcommit_memory
+        local msg="System: /proc/sys/vm/overcommit_memory should be 1"
+        overcommit_memory=$(cat /proc/sys/vm/overcommit_memory)
+        if [ "$overcommit_memory" -eq 1 ]; then
+            state "$msg" 0
+        else
+            state "$msg. Actual: $overcommit_memory" 1
+        fi
+    }
+
     function check_tuned() {
         # "tuned" service should be disabled on RHEL/CentOS 7.x
         # https://www.cloudera.com/documentation/enterprise/latest/topics/cdh_admin_performance.html#xd_583c10bfdbd326ba-7dae4aa6-147c30d0933--7fd5__disable-tuned
@@ -237,6 +249,7 @@ function check_os() (
         fi
     }
     check_swappiness
+    check_overcommit_memory
     check_tuned
     check_thp
     check_selinux
