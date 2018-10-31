@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 
 function check_jce() {
-    if $( ${1}/bin/jrunscript -e 'exit (javax.crypto.Cipher.getMaxAllowedKeyLength("RC5") >= 256 ? 0 : 1);' > /dev/null 2>&1 ); then
-            state "Java: JCE Files are installed for Oracle Java: ${candidate}/bin/java" 0
+    if "${1}"/bin/jrunscript -e 'exit (javax.crypto.Cipher.getMaxAllowedKeyLength("RC5") >= 256 ? 0 : 1);' > /dev/null 2>&1 ; then
+            state "Java: JCE Files are installed for Oracle Java: ""${candidate}""/bin/java" 0
         else
-            state "Java: JCE Files are not installed for Oracle Java: ${candidate}/bin/java" 1
+            state "Java: JCE Files are not installed for Oracle Java: ""${candidate}""/bin/java" 1
         fi
 }
 
