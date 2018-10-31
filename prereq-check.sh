@@ -821,6 +821,10 @@ function check_os() (
                 _check_service_is_not_running 'System' 'chronyd'
             else
                 _check_service_is_running 'System' 'chronyd'
+                get_service_state 'chronyd'
+                if [ "${SERVICE_STATE['running']}" = true ]; then
+                    state "System: kudu supports only ntpd. If kudu is not used, this warning can be ignored." 1
+                fi
             fi
         else
             _check_service_is_running 'System' 'ntpd'
