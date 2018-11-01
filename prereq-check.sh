@@ -1100,10 +1100,19 @@ function check_firewall() {
     fi
 }
 
+function check_virt() {
+        local msg="System: Non BareMetal deployments should follow appropriate Reference Architecures -- Please see https://bit.ly/2CTLeWB"
+        case $(systemd-detect-virt) in
+            none) state "System: Running on Bare Metal" 0;;
+            *)                   state "$msg" 2;;
+        esac
+}
+
 function checks() (
     print_header "Prerequisite checks"
     reset_service_state
     check_os
+    check_virt
     check_network
     check_firewall
     check_java
