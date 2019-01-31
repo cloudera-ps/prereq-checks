@@ -638,7 +638,7 @@ EOFILE
 function check_localhost() {
     which dig 2&>/dev/null
     if [ $? -eq 2 ]; then
-        state "Network: 'dig' not found, skipping DNS checks. Run 'sudo yum install bind-utils' to fix." 2
+        state "Network: 'dig' not found, skipping localhost check. Run 'sudo yum install bind-utils' to fix." 2
         return
     fi
 
@@ -659,7 +659,7 @@ function check_wildcard_dns() {
 
     which dig 2&>/dev/null
     if [ $? -eq 2 ]; then
-        state "Network: 'dig' not found, skipping DNS checks. Run 'sudo yum install bind-utils' to fix." 2
+        state "Network: 'dig' not found, skipping wildcard DNS checks. Run 'sudo yum install bind-utils' to fix." 2
         return
     fi
 
@@ -672,6 +672,15 @@ function check_wildcard_dns() {
         state "Network: wildcard DNS does not resolve to the CDSW Master IP" 1
     fi
     return
+}
+
+function check_local_dns_port53() {
+    # Check if port 53 is in used by other service
+    if [[ -z "$(netstat -na | grep ":53 " | awk '{print $4}' | grep -E '^(0.0.0.0|127.0.0.1)')" ]]; then
+        state "Network: port 53 should not be used by other service on CDSW master" 0
+    else
+        state "Network: port 53 should not be used by other service on CDSW master" 1
+    fi
 }
 
 function check_uid_8536() {
@@ -730,10 +739,6 @@ function print_raw_blk_dev() {
     done
 }
 
-function check_port_53() {
-    return
-}
-
 function check_root_vol() {
     return
 }
@@ -754,9 +759,10 @@ function check_cdsw() {
     echo "------------------------"
 
     check_uid_8536
+    check_app_blk_dev
     check_localhost
     check_wildcard_dns
-    check_app_blk_dev
+    check_local_dns_port53
     return
 }
 
