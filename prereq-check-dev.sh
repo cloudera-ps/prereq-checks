@@ -30,7 +30,7 @@
 # http://redsymbol.net/articles/unofficial-bash-strict-mode/
 set -u
 
-VER=1.4.4
+VER=1.5
 
 if [ "$(uname)" = 'Darwin' ]; then
     echo -e "\nThis tool runs on Linux only, not Mac OS."
@@ -52,7 +52,7 @@ for lib in $DIR/lib/{security/,}*.sh; do
 done
 # Include libs (STOP)  --------------------------------------------------------
 
-BANNER="Cloudera Manager & CDH Prerequisites Checks v$VER"
+BANNER="Cloudera Prerequisites Checks v$VER"
 
 function usage() {
     SCRIPTNAME=$(basename "${BASH_SOURCE[0]}")
@@ -72,6 +72,9 @@ function usage() {
     echo "  -p, --privilegetest $(tput smul)ldapURI$(tput sgr0) $(tput smul)binddn$(tput sgr0) $(tput smul)searchbase$(tput sgr0) $(tput smul)bind_user_password$(tput sgr0)"
     echo "    Run tests against Active Directory delegated user for Direct to AD integration"
     echo "    http://blog.cloudera.com/blog/2014/07/new-in-cloudera-manager-5-1-direct-active-directory-integration-for-kerberos-authentication/"
+    echo 
+    echo "  -c, --cdsw $(tput smul)CDSW_FQDN$(tput sgr0) $(tput smul)CDSW_Master_IP$(tput sgr0)"
+    echo "    Run pre-requisite checks on a CDSW node"
     echo
     exit 1
 }
@@ -80,6 +83,7 @@ export DEBUG=
 OPT_USAGE=
 OPT_DOMAIN=
 OPT_USER=
+OPT_CDSW=
 if [[ $# -gt 0 ]]; then
     KEY=$1
     case ${KEY} in
@@ -88,7 +92,11 @@ if [[ $# -gt 0 ]]; then
             ;;
         -a|--addc)
             OPT_DOMAIN=true
-            ARG_DOMAIN=$2
+            if [[ $# -eq 2 ]]; then
+                ARG_DOMAIN=$2
+            else
+                usage
+            fi
             ;;
         -p|--privilegetest)
             OPT_USER=true
@@ -96,6 +104,15 @@ if [[ $# -gt 0 ]]; then
             ARG_BINDDN=$3
             ARG_SEARCHBASE=$4
             ARG_USERPSWD=$5
+            ;;
+        -c|--cdsw)
+            OPT_CDSW=true
+            if [[ $# -eq 3 ]]; then
+                ARG_CDSW_FQDN=$2
+                ARG_CDSW_MASTER_IP=$3
+            else
+                usage
+            fi
             ;;
         *)
             # Unknown option
@@ -121,6 +138,9 @@ elif [[ ${OPT_USER} ]]; then
     else
         check_privs "${ARG_LDAPURI}" "${ARG_BINDDN}" "${ARG_SEARCHBASE}"
     fi
+elif [[ ${OPT_CDSW} ]]; then
+    echo "${BANNER}"
+    check_cdsw
 else
     echo "${BANNER}"
 
