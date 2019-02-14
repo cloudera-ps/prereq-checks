@@ -17,6 +17,8 @@ function check_localhost() {
 }
 
 function check_iptable() {
+    NUM_RULES=$(iptables -n -L -v --line-numbers | egrep "^[0-9]" | wc -l)
+    state "System: iptables should not have any pre-existing rules" $([ "$NUM_RULES" == 0 ] && echo "0" || echo "1")
     return
 }
 
@@ -62,7 +64,7 @@ function check_app_blk_dev() {
     df=$(df |grep /var/lib/cdsw)
 
     if [[ -z "$df" ]]; then
-        state "System: Application block device for /var/lib/cdsw not found" 1
+        state "System: application block device for /var/lib/cdsw not found" 1
         return
     fi
 
@@ -70,9 +72,9 @@ function check_app_blk_dev() {
     size=$(echo $df | awk '{print $2}')
     
     if [[ $size -gt 1099511627776 ]]; then
-        state "System: Found application block device $appdev with at least 1TB size mounted to /var/lib/cdsw" 0
+        state "System: found application block device $appdev with at least 1TB size mounted to /var/lib/cdsw" 0
     else
-        state "System: Found application block device $appdev but size is less than 1TB" 2
+        state "System: found application block device $appdev but size is less than 1TB" 2
     fi
 
     return
@@ -125,6 +127,7 @@ function check_cdsw() {
 
     check_uid_8536
     check_app_blk_dev
+    check_iptable
     check_localhost
     check_wildcard_dns
     check_local_dns_port53
