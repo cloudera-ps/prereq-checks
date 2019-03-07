@@ -132,7 +132,7 @@ OPTIONS:
     http://blog.cloudera.com/blog/2014/07/new-in-cloudera-manager-5-1-direct-active-directory-integration-for-kerberos-authentication/
 
   -c, --cdsw CDSW_FQDN CDSW_Master_IP
-    Run pre-requisite checks on a CDSW node
+    Run CDSW pre-requisite checks
 ```
 
 ## Contributions
