@@ -139,8 +139,13 @@ elif [[ ${OPT_USER} ]]; then
         check_privs "${ARG_LDAPURI}" "${ARG_BINDDN}" "${ARG_SEARCHBASE}"
     fi
 elif [[ ${OPT_CDSW} ]]; then
-    echo "${BANNER}"
-    check_cdsw
+    if [[ -z ${ARG_CDSW_FQDN} || -z ${ARG_CDSW_MASTER_IP} ]]; then
+        >&2 echo "Options missing"
+        usage
+    else
+        echo "${BANNER}"
+        check_cdsw
+    fi
 else
     echo "${BANNER}"
 

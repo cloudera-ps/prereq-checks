@@ -1624,7 +1624,7 @@ function usage() {
     echo "    http://blog.cloudera.com/blog/2014/07/new-in-cloudera-manager-5-1-direct-active-directory-integration-for-kerberos-authentication/"
     echo 
     echo "  -c, --cdsw $(tput smul)CDSW_FQDN$(tput sgr0) $(tput smul)CDSW_Master_IP$(tput sgr0)"
-    echo "    Run pre-requisite checks on a CDSW node"
+    echo "    Run CDSW pre-requisite checks"
     echo
     exit 1
 }
