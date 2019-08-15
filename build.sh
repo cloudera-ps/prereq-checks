@@ -118,6 +118,9 @@ for subdir in vagrant/*/; do
     ln -f prereq-check.sh "$subdir"
 done
 
+# Update hard link for Ansible 
+ln -f prereq-check.sh ansible/roles/prereq-checks/files
+
 info "Wrote to $OUT_FILE and updated Vagrant hard-links"
 
 if command -v shellcheck >/dev/null; then
