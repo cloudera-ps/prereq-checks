@@ -46,24 +46,27 @@ function check_java() {
         '/usr/lib/jvm/jre-openjdk'
     )
     local JAVA_HOME_CANDIDATES=(
-        ${JAVA7_HOME_CANDIDATES[@]}
-        ${JAVA8_HOME_CANDIDATES[@]}
-        ${JAVA6_HOME_CANDIDATES[@]}
-        ${MISCJAVA_HOME_CANDIDATES[@]}
-        ${OPENJAVA7_HOME_CANDIDATES[@]}
-        ${OPENJAVA8_HOME_CANDIDATES[@]}
-        ${OPENJAVA6_HOME_CANDIDATES[@]}
+        "${JAVA7_HOME_CANDIDATES[@]}"
+        "${JAVA8_HOME_CANDIDATES[@]}"
+        "${JAVA6_HOME_CANDIDATES[@]}"
+        "${MISCJAVA_HOME_CANDIDATES[@]}"
+        "${OPENJAVA7_HOME_CANDIDATES[@]}"
+        "${OPENJAVA8_HOME_CANDIDATES[@]}"
+        "${OPENJAVA6_HOME_CANDIDATES[@]}"
     )
 
     # Find and verify Java
     # https://www.cloudera.com/documentation/enterprise/release-notes/topics/rn_consolidated_pcm.html#pcm_jdk
     # JDK 7 minimum required version is JDK 1.7u55
     # JDK 8 minimum required version is JDK 1.8u31
-    #   excluldes JDK 1.8u40, JDK 1.8u45, and JDK 1.8u60
+    # excludes JDK 1.8u40, JDK 1.8u45, and JDK 1.8u60
+    # OpenJDK minimum required version is 1.8u181
+    java_found=false
     for candidate_regex in "${JAVA_HOME_CANDIDATES[@]}"; do
         # shellcheck disable=SC2045,SC2086
         for candidate in $(ls -rvd ${candidate_regex}* 2>/dev/null); do
             if [ -x "$candidate/bin/java" ]; then
+                java_found=true
                 JDK_VERSION=$($candidate/bin/java -version 2>&1 | head -1 | awk '{print $NF}' | tr -d '"')
                 JDK_VERSION_REGEX='1\.([0-9])\.0_([0-9][0-9]*)'
                 JDK_TYPE=$($candidate/bin/java -version 2>&1 | head -2 | tail -1 | awk '{print $1}')
@@ -96,13 +99,30 @@ function check_java() {
                         state "Java: Unsupported Oracle Java: ${candidate}/bin/java" 1
                     fi
                 elif [[ $JDK_TYPE = "OpenJDK" ]]; then
-                    state "Java: Unsupported OpenJDK: ${candidate}/bin/java" 1
+                    if [[ $JDK_VERSION =~ $JDK_VERSION_REGEX ]]; then
+                        if [[ ${BASH_REMATCH[1]} -eq 7 ]]; then
+                            state "Java: Unsupported OpenJDK: ${candidate}/bin/java" 1
+                        elif [[ ${BASH_REMATCH[1]} -eq 8 ]]; then
+                            if [[ ${BASH_REMATCH[2]} -lt 181 ]]; then
+                                state "Java: Unsupported OpenJDK: ${candidate}/bin/java" 1
+                            else
+                                state "Java: Supported OpenJDK (CDH 5.16.1+ or 6.1.0+ only): ${candidate}/bin/java" 0
+                            fi
+                        else
+                            state "Java: Unsupported OpenJDK: ${candidate}/bin/java" 1
+                        fi
+                    else
+                        state "Java: Unsupported OpenJDK: ${candidate}/bin/java" 1
+                    fi
                 else
                     state "Java: Unsupported Unknown: ${candidate}/bin/java" 1
                 fi
             fi
         done
     done
+    if [ "$java_found" = false ] ; then
+        state "Java: No JDK installed" 1
+    fi
 }
 
 function check_os() (
@@ -448,8 +468,7 @@ function check_network() (
     # reverse (ip address to hostname) resolutions.
     # Note that an additional `.' in the PTR ANSWER SECTION.
     function check_dns() {
-        which dig 2&>/dev/null
-        if [ $? -eq 2 ]; then
+        if ! command -v dig 2&>/dev/null ; then
             state "Network: 'dig' not found, skipping DNS checks. Run 'sudo yum install bind-utils' to fix." 2
             return
         fi
