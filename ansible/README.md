@@ -4,7 +4,7 @@ Use Ansible to easily run the prereq checks script across a cluster and collect
 the results. The easiest way is to have a simple `ansible.cfg` file like this:
 
     [defaults]
-    hostfile = inventory/hosts
+    inventory = inventory/hosts
     host_key_checking = False
     roles_path = roles
 
@@ -48,3 +48,16 @@ Running the above playbook will store output files under `./out/`. For example:
     rack01-node02.example.com.out	rack02-node02.example.com.out
     rack01-node03.example.com.out	rack02-node03.example.com.out
     rack01-node04.example.com.out	rack02-node04.example.com.out
+
+### Supplying password for SSH connections
+
+If password-less SSH is not configured for your servers, you must configure Ansible to prompt for a password. This can be achieved by adding the `ask_pass` parameter into `ansible.cfg`: 
+
+    [defaults]
+    ...
+    ask_pass = True
+
+Alternatively, as a one-off you can provide the `--ask-pass` flag (or its `-k` short form) to your `ansible-playbook` command:
+
+    % ansible-playbook --ask-pass prereq-check.yml 
+    SSH password: ***
