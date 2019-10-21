@@ -20,7 +20,7 @@
 # that the technology will meet your requirements, that the operation thereof
 # will be uninterrupted or error-free, or that any errors will be corrected.
 #
-# Any use of these scripts and toxxxols is at your own risk. There is no guarantee
+# Any use of these scripts and tools is at your own risk. There is no guarantee
 # that they have been through thorough testing in a comparable environment and
 # we are not responsible for any damage or data loss incurred with their use.
 #
