@@ -636,8 +636,8 @@ EOFILE
 #!/usr/bin/env bash
 
 function check_localhost() {
-    which dig 2&>/dev/null
-    if [ $? -eq 2 ]; then
+
+    if ! command -v dig 2&>/dev/null ; then
         state "Network: 'dig' not found, skipping localhost check. Run 'sudo yum install bind-utils' to fix." 2
         return
     fi
@@ -652,21 +652,20 @@ function check_localhost() {
 }
 
 function check_iptable() {
-    NUM_RULES=$(iptables -n -L -v --line-numbers | egrep "^[0-9]" | wc -l)
-    state "System: iptables should not have any pre-existing rules" $([ "$NUM_RULES" == 0 ] && echo "0" || echo "1")
+    NUM_RULES=$(iptables -n -L -v --line-numbers | grep -cE "^[0-9]")
+    state "System: iptables should not have any pre-existing rules" "$([ "$NUM_RULES" == 0 ] && echo "0" || echo "1")"
     return
 }
 
 function check_wildcard_dns() {
 
-    which dig 2&>/dev/null
-    if [ $? -eq 2 ]; then
+    if ! command -v dig 2&>/dev/null ; then
         state "Network: 'dig' not found, skipping wildcard DNS checks. Run 'sudo yum install bind-utils' to fix." 2
         return
     fi
 
     rand=$(openssl rand -hex 3)
-    ip=$(dig +short $rand.$ARG_CDSW_FQDN)
+    ip=$(dig +short "$rand"."$ARG_CDSW_FQDN")
 
     if [[ "$ip" == "$ARG_CDSW_MASTER_IP" ]]; then
         state "Network: wildcard DNS correctly resolves to CDSW Master IP $ARG_CDSW_MASTER_IP" 0
@@ -678,7 +677,7 @@ function check_wildcard_dns() {
 
 function check_local_dns_port53() {
     # Check if port 53 is in used by other service
-    if [[ -z "$(netstat -na | grep ":53 " | awk '{print $4}' | grep -E '^(0.0.0.0|127.0.0.1)')" ]]; then
+    if netstat -na | grep ":53 " | awk '{print $4}' | grep -qE '^(0.0.0.0|127.0.0.1)'; then
         state "Network: port 53 should not be used by other service on CDSW master" 0
     else
         state "Network: port 53 should not be used by other service on CDSW master" 1
@@ -703,8 +702,8 @@ function check_app_blk_dev() {
         return
     fi
 
-    appdev=$(echo $df | awk '{print $1}')
-    size=$(echo $df | awk '{print $2}')
+    appdev=$(echo "$df" | awk '{print $1}')
+    size=$(echo "$df" | awk '{print $2}')
     
     if [[ $size -gt 1099511627776 ]]; then
         state "System: found application block device $appdev with at least 1TB size mounted to /var/lib/cdsw" 0
@@ -721,15 +720,15 @@ function print_raw_blk_dev() {
     blkdev=$(lsblk -ndlp -o name,type | grep disk| awk '{print $1}')
 
     for dev in $blkdev; do
-        if [[ $(lsblk -nlp $dev | wc -l) -gt 1 ]]; then
+        if [[ $(lsblk -nlp "$dev" | wc -l) -gt 1 ]]; then
             continue
         else
             # get size of device
-            size=$(lsblk -n -o size $dev)
+            size=$(lsblk -n -o size "$dev")
 
             pad
             # check if device has a GPT partition or MBR
-            output=$(blkid -o value $dev)
+            output=$(blkid -o value "$dev")
             if [[ $output == "dos" ]]; then
                printf "%s\t%s\t%s\n" "$dev" "$size" "MBR" 
             elif [[ $output == "gpt" ]]; then
@@ -818,24 +817,27 @@ function check_java() {
         '/usr/lib/jvm/jre-openjdk'
     )
     local JAVA_HOME_CANDIDATES=(
-        ${JAVA7_HOME_CANDIDATES[@]}
-        ${JAVA8_HOME_CANDIDATES[@]}
-        ${JAVA6_HOME_CANDIDATES[@]}
-        ${MISCJAVA_HOME_CANDIDATES[@]}
-        ${OPENJAVA7_HOME_CANDIDATES[@]}
-        ${OPENJAVA8_HOME_CANDIDATES[@]}
-        ${OPENJAVA6_HOME_CANDIDATES[@]}
+        "${JAVA7_HOME_CANDIDATES[@]}"
+        "${JAVA8_HOME_CANDIDATES[@]}"
+        "${JAVA6_HOME_CANDIDATES[@]}"
+        "${MISCJAVA_HOME_CANDIDATES[@]}"
+        "${OPENJAVA7_HOME_CANDIDATES[@]}"
+        "${OPENJAVA8_HOME_CANDIDATES[@]}"
+        "${OPENJAVA6_HOME_CANDIDATES[@]}"
     )
 
     # Find and verify Java
     # https://www.cloudera.com/documentation/enterprise/release-notes/topics/rn_consolidated_pcm.html#pcm_jdk
     # JDK 7 minimum required version is JDK 1.7u55
     # JDK 8 minimum required version is JDK 1.8u31
-    #   excluldes JDK 1.8u40, JDK 1.8u45, and JDK 1.8u60
+    # excludes JDK 1.8u40, JDK 1.8u45, and JDK 1.8u60
+    # OpenJDK minimum required version is 1.8u181
+    java_found=false
     for candidate_regex in "${JAVA_HOME_CANDIDATES[@]}"; do
         # shellcheck disable=SC2045,SC2086
         for candidate in $(ls -rvd ${candidate_regex}* 2>/dev/null); do
             if [ -x "$candidate/bin/java" ]; then
+                java_found=true
                 JDK_VERSION=$($candidate/bin/java -version 2>&1 | head -1 | awk '{print $NF}' | tr -d '"')
                 JDK_VERSION_REGEX='1\.([0-9])\.0_([0-9][0-9]*)'
                 JDK_TYPE=$($candidate/bin/java -version 2>&1 | head -2 | tail -1 | awk '{print $1}')
@@ -868,13 +870,30 @@ function check_java() {
                         state "Java: Unsupported Oracle Java: ${candidate}/bin/java" 1
                     fi
                 elif [[ $JDK_TYPE = "OpenJDK" ]]; then
-                    state "Java: Unsupported OpenJDK: ${candidate}/bin/java" 1
+                    if [[ $JDK_VERSION =~ $JDK_VERSION_REGEX ]]; then
+                        if [[ ${BASH_REMATCH[1]} -eq 7 ]]; then
+                            state "Java: Unsupported OpenJDK: ${candidate}/bin/java" 1
+                        elif [[ ${BASH_REMATCH[1]} -eq 8 ]]; then
+                            if [[ ${BASH_REMATCH[2]} -lt 181 ]]; then
+                                state "Java: Unsupported OpenJDK: ${candidate}/bin/java" 1
+                            else
+                                state "Java: Supported OpenJDK (CDH 5.16.1+ or 6.1.0+ only): ${candidate}/bin/java" 0
+                            fi
+                        else
+                            state "Java: Unsupported OpenJDK: ${candidate}/bin/java" 1
+                        fi
+                    else
+                        state "Java: Unsupported OpenJDK: ${candidate}/bin/java" 1
+                    fi
                 else
                     state "Java: Unsupported Unknown: ${candidate}/bin/java" 1
                 fi
             fi
         done
     done
+    if [ "$java_found" = false ] ; then
+        state "Java: No JDK installed" 1
+    fi
 }
 
 function check_os() (
@@ -1220,8 +1239,7 @@ function check_network() (
     # reverse (ip address to hostname) resolutions.
     # Note that an additional `.' in the PTR ANSWER SECTION.
     function check_dns() {
-        which dig 2&>/dev/null
-        if [ $? -eq 2 ]; then
+        if ! command -v dig 2&>/dev/null ; then
             state "Network: 'dig' not found, skipping DNS checks. Run 'sudo yum install bind-utils' to fix." 2
             return
         fi
