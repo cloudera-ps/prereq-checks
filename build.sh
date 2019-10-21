@@ -30,7 +30,7 @@ function show_usage() {
 }
 
 function autobuild() {
-    if which shellcheck >/dev/null; then
+    if command -v shellcheck >/dev/null; then
         info "Found 'shellcheck', will run post-build Bash lint"
     else
         info "'shellcheck' not installed, skipping post-build Bash lint"
@@ -99,7 +99,7 @@ cldap=lib/security/cldap.pl
 
 # Loop through each of the Bash script dependencies in lib/ and embedded them in
 # $OUT_FILE.
-for lib in $DIR/lib/{security/,}*.sh; do
+for lib in "$DIR"/lib/{security/,}*.sh; do
     {   echo "# $(basename "$lib") ------------------------------------------------"
         cat "$lib"
         echo
@@ -120,7 +120,7 @@ done
 
 info "Wrote to $OUT_FILE and updated Vagrant hard-links"
 
-if which shellcheck >/dev/null; then
+if command -v shellcheck >/dev/null; then
     info "Running 'shellcheck prereq-check.sh'..."
     set +e
     if shellcheck prereq-check.sh; then

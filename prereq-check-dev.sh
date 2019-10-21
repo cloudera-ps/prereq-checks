@@ -46,7 +46,7 @@ trap cleanup EXIT
 # Do not remove the place marker "Include libs (START|STOP)" comments. They are
 # place markers for generating the single file script.
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-for lib in $DIR/lib/{security/,}*.sh; do
+for lib in "$DIR"/lib/{security/,}*.sh; do
     # shellcheck disable=SC1090
     source "$lib"
 done

@@ -46,13 +46,13 @@ function check_java() {
         '/usr/lib/jvm/jre-openjdk'
     )
     local JAVA_HOME_CANDIDATES=(
-        ${JAVA7_HOME_CANDIDATES[@]}
-        ${JAVA8_HOME_CANDIDATES[@]}
-        ${JAVA6_HOME_CANDIDATES[@]}
-        ${MISCJAVA_HOME_CANDIDATES[@]}
-        ${OPENJAVA7_HOME_CANDIDATES[@]}
-        ${OPENJAVA8_HOME_CANDIDATES[@]}
-        ${OPENJAVA6_HOME_CANDIDATES[@]}
+        "${JAVA7_HOME_CANDIDATES[@]}"
+        "${JAVA8_HOME_CANDIDATES[@]}"
+        "${JAVA6_HOME_CANDIDATES[@]}"
+        "${MISCJAVA_HOME_CANDIDATES[@]}"
+        "${OPENJAVA7_HOME_CANDIDATES[@]}"
+        "${OPENJAVA8_HOME_CANDIDATES[@]}"
+        "${OPENJAVA6_HOME_CANDIDATES[@]}"
     )
 
     # Find and verify Java
@@ -468,8 +468,7 @@ function check_network() (
     # reverse (ip address to hostname) resolutions.
     # Note that an additional `.' in the PTR ANSWER SECTION.
     function check_dns() {
-        which dig 2&>/dev/null
-        if [ $? -eq 2 ]; then
+        if ! command -v dig 2&>/dev/null ; then
             state "Network: 'dig' not found, skipping DNS checks. Run 'sudo yum install bind-utils' to fix." 2
             return
         fi
