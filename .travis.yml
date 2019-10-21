@@ -5,6 +5,7 @@ script:
 - shellcheck lib/info.sh
 - shellcheck lib/utils.sh
 - shellcheck lib/checks.sh
+- shellcheck lib/cdsw-checks.sh
 - shellcheck lib/security/security-checks.sh
 - shellcheck vagrant/v
 - ./build.sh && ./prereq-check.sh
