@@ -944,7 +944,7 @@ function check_os() (
         # Ubuntu/Debian use [2]:
         #   1: /sys/kernel/mm/redhat_transparent_hugepage/defrag
         #   2: /sys/kernel/mm/transparent_hugepage/defrag.
-        # http://www.cloudera.com/content/www/en-us/documentation/enterprise/latest/topics/cdh_admin_performance.html#xd_583c10bfdbd326ba-7dae4aa6-147c30d0933--7fd5__section_hw3_sdf_jq
+        # https://docs.cloudera.com/documentation/enterprise/latest/topics/cdh_admin_performance.html#cdh_performance__section_hw3_sdf_jq
         local file
         file=$(find /sys/kernel/mm/ -type d -name '*transparent_hugepage')/defrag
         if [ -f "$file" ]; then
@@ -985,7 +985,7 @@ function check_os() (
             if grep -F -q "transparent_hugepage=never" "$file"; then
                 state "$msg" 0
             else
-                state "$msg. Actual: $(grep GRUB_CMDLINE_LINUX= /etc/default/grub | sed -e 's/\[//' -e 's/\]//')" 1
+                state "$msg. Actual: $(grep GRUB_CMDLINE_LINUX=/etc/default/grub | sed -e 's/\[//' -e 's/\]//')" 1
             fi
         else
             state "System: /etc/default/grub not found. Check skipped" 2
