@@ -648,7 +648,7 @@ function check_localhost() {
     else
         state "Network: localhost does not resolve to 127.0.0.1" 1
     fi
-    return 
+    return
 }
 
 function check_iptable() {
@@ -704,7 +704,7 @@ function check_app_blk_dev() {
 
     appdev=$(echo "$df" | awk '{print $1}')
     size=$(echo "$df" | awk '{print $2}')
-    
+
     if [[ $size -gt 1099511627776 ]]; then
         state "System: found application block device $appdev with at least 1TB size mounted to /var/lib/cdsw" 0
     else
@@ -730,7 +730,7 @@ function print_raw_blk_dev() {
             # check if device has a GPT partition or MBR
             output=$(blkid -o value "$dev")
             if [[ $output == "dos" ]]; then
-               printf "%s\t%s\t%s\n" "$dev" "$size" "MBR" 
+               printf "%s\t%s\t%s\n" "$dev" "$size" "MBR"
             elif [[ $output == "gpt" ]]; then
                printf "%s\t%s\t%s\n" "$dev" "$size" "GPT"
             else
@@ -770,6 +770,14 @@ function check_cdsw() {
 
 # checks.sh ------------------------------------------------
 #!/usr/bin/env bash
+
+function check_jce() {
+    if "${1}"/bin/jrunscript -e 'exit (javax.crypto.Cipher.getMaxAllowedKeyLength("RC5") >= 256 ? 0 : 1);' > /dev/null 2>&1 ; then
+            state "Java: JCE Files are installed for Oracle Java: ""${candidate}""/bin/java" 0
+        else
+            state "Java: JCE Files are not installed for Oracle Java: ""${candidate}""/bin/java" 1
+        fi
+}
 
 function check_java() {
     # The following candidate list is from CM agent:
@@ -848,6 +856,7 @@ function check_java() {
                                 state "Java: Unsupported Oracle Java: ${candidate}/bin/java" 1
                             else
                                 state "Java: Supported Oracle Java: ${candidate}/bin/java" 0
+                                check_jce ${candidate}
                             fi
                         elif [[ ${BASH_REMATCH[1]} -eq 8 ]]; then
                             if [[ ${BASH_REMATCH[2]} -lt 31 ]]; then
@@ -862,6 +871,7 @@ function check_java() {
                                 state "Java: Oozie will not work on this Java (OOZIE-2533): ${candidate}/bin/java" 2
                             else
                                 state "Java: Supported Oracle Java: ${candidate}/bin/java" 0
+                                check_jce ${candidate}
                             fi
                         else
                             state "Java: Unsupported Oracle Java: ${candidate}/bin/java" 1
@@ -939,12 +949,12 @@ function check_os() (
         fi
     }
 
-    function check_thp() {
+    function check_thp_defrag() {
         # Older RHEL/CentOS versions use [1], while newer versions (e.g. 7.1) and
         # Ubuntu/Debian use [2]:
         #   1: /sys/kernel/mm/redhat_transparent_hugepage/defrag
         #   2: /sys/kernel/mm/transparent_hugepage/defrag.
-        # http://www.cloudera.com/content/www/en-us/documentation/enterprise/latest/topics/cdh_admin_performance.html#xd_583c10bfdbd326ba-7dae4aa6-147c30d0933--7fd5__section_hw3_sdf_jq
+        # http://www.cloudera.com/content/www/en-us/documentation/enterprise/latest/topics/cdh_admin_performance.html#cdh_performance__section_hw3_sdf_jq
         local file
         file=$(find /sys/kernel/mm/ -type d -name '*transparent_hugepage')/defrag
         if [ -f "$file" ]; then
@@ -956,6 +966,39 @@ function check_os() (
             fi
         else
             state "System: /sys/kernel/mm/*transparent_hugepage not found. Check skipped" 2
+        fi
+    }
+
+    function check_thp_enabled() {
+        # https://docs.cloudera.com/documentation/enterprise/latest/topics/cdh_admin_performance.html#cdh_performance__section_hw3_sdf_jq
+        local file
+        file=$(find /sys/kernel/mm/ -type d -name '*transparent_hugepage')/enabled
+        if [ -f "$file" ]; then
+            local msg="System: $file should be disabled"
+            if grep -F -q "[never]" "$file"; then
+                state "$msg" 0
+            else
+                state "$msg. Actual: $(awk '{print $1}' "$file" | sed -e 's/\[//' -e 's/\]//')" 1
+            fi
+        else
+            state "System: /sys/kernel/mm/*transparent_hugepage not found. Check skipped" 2
+        fi
+    }
+
+    function check_thp_grub() {
+        # If your cluster hosts are running RHEL/CentOS 7.x, modify the GRUB configuration to disable THP
+        # https://docs.cloudera.com/documentation/enterprise/latest/topics/cdh_admin_performance.html#cdh_performance__section_hw3_sdf_jq
+        local file
+        file=$(find /etc/default/grub)
+        if [ -f "$file" ]; then
+            local msg="System: $file should have 'transparent_hugepage=never' appended to GRUB_CMDLINE_LINUX"
+            if grep -F -q "transparent_hugepage=never" "$file"; then
+                state "$msg" 0
+            else
+                state "$msg. Actual: $(grep GRUB_CMDLINE_LINUX=/etc/default/grub | sed -e 's/\[//' -e 's/\]//')" 1
+            fi
+        else
+            state "System: /etc/default/grub not found. Check skipped" 2
         fi
     }
 
@@ -1046,7 +1089,9 @@ function check_os() (
     check_swappiness
     check_overcommit_memory
     check_tuned
-    check_thp
+    check_thp_defrag
+    check_thp_enabled
+    check_thp_grub
     check_selinux
     check_time_sync
     check_32bit_packages
@@ -1640,7 +1685,7 @@ function usage() {
     echo "  -p, --privilegetest $(tput smul)ldapURI$(tput sgr0) $(tput smul)binddn$(tput sgr0) $(tput smul)searchbase$(tput sgr0) $(tput smul)bind_user_password$(tput sgr0)"
     echo "    Run tests against Active Directory delegated user for Direct to AD integration"
     echo "    http://blog.cloudera.com/blog/2014/07/new-in-cloudera-manager-5-1-direct-active-directory-integration-for-kerberos-authentication/"
-    echo 
+    echo
     echo "  -c, --cdsw $(tput smul)CDSW_FQDN$(tput sgr0) $(tput smul)CDSW_Master_IP$(tput sgr0)"
     echo "    Run CDSW pre-requisite checks"
     echo
