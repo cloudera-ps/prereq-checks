@@ -648,7 +648,7 @@ function check_localhost() {
     else
         state "Network: localhost does not resolve to 127.0.0.1" 1
     fi
-    return
+    return 
 }
 
 function check_iptable() {
@@ -704,7 +704,7 @@ function check_app_blk_dev() {
 
     appdev=$(echo "$df" | awk '{print $1}')
     size=$(echo "$df" | awk '{print $2}')
-
+    
     if [[ $size -gt 1099511627776 ]]; then
         state "System: found application block device $appdev with at least 1TB size mounted to /var/lib/cdsw" 0
     else
@@ -730,7 +730,7 @@ function print_raw_blk_dev() {
             # check if device has a GPT partition or MBR
             output=$(blkid -o value "$dev")
             if [[ $output == "dos" ]]; then
-               printf "%s\t%s\t%s\n" "$dev" "$size" "MBR"
+               printf "%s\t%s\t%s\n" "$dev" "$size" "MBR" 
             elif [[ $output == "gpt" ]]; then
                printf "%s\t%s\t%s\n" "$dev" "$size" "GPT"
             else
@@ -989,8 +989,7 @@ function check_os() (
         # If your cluster hosts are running RHEL/CentOS 7.x, modify the GRUB configuration to disable THP
         # https://docs.cloudera.com/documentation/enterprise/latest/topics/cdh_admin_performance.html#cdh_performance__section_hw3_sdf_jq
         local file
-        file=$(find /etc/default/grub)
-        if [ -f "$file" ]; then
+        if [ -f "/etc/default/grub" ]; then
             local msg="System: $file should have 'transparent_hugepage=never' appended to GRUB_CMDLINE_LINUX"
             if grep -F -q "transparent_hugepage=never" "$file"; then
                 state "$msg" 0
@@ -1685,7 +1684,7 @@ function usage() {
     echo "  -p, --privilegetest $(tput smul)ldapURI$(tput sgr0) $(tput smul)binddn$(tput sgr0) $(tput smul)searchbase$(tput sgr0) $(tput smul)bind_user_password$(tput sgr0)"
     echo "    Run tests against Active Directory delegated user for Direct to AD integration"
     echo "    http://blog.cloudera.com/blog/2014/07/new-in-cloudera-manager-5-1-direct-active-directory-integration-for-kerberos-authentication/"
-    echo
+    echo 
     echo "  -c, --cdsw $(tput smul)CDSW_FQDN$(tput sgr0) $(tput smul)CDSW_Master_IP$(tput sgr0)"
     echo "    Run CDSW pre-requisite checks"
     echo
