@@ -217,16 +217,15 @@ function check_os() (
     function check_thp_grub() {
         # If your cluster hosts are running RHEL/CentOS 7.x, modify the GRUB configuration to disable THP
         # https://docs.cloudera.com/documentation/enterprise/latest/topics/cdh_admin_performance.html#cdh_performance__section_hw3_sdf_jq
-        local file
         if [ -f "/etc/default/grub" ]; then
-            local msg="System: $file should have 'transparent_hugepage=never' appended to GRUB_CMDLINE_LINUX"
-            if grep -F -q "transparent_hugepage=never" "$file"; then
+            local msg="System: /etc/default/grub should have 'transparent_hugepage=never' appended to GRUB_CMDLINE_LINUX"
+            if grep -F -q "transparent_hugepage=never" "/etc/default/grub"; then
                 state "$msg" 0
             else
-                state "$msg. Actual: $(grep GRUB_CMDLINE_LINUX=/etc/default/grub | sed -e 's/\[//' -e 's/\]//')" 1
+                state "$msg. Actual: $(grep GRUB_CMDLINE_LINUX /etc/default/grub)" 1
             fi
         else
-            state "System: /etc/default/grub not found. Check skipped" 2
+            state "System: $file not found. Check skipped" 2
         fi
     }
 
