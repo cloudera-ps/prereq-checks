@@ -996,7 +996,7 @@ function check_os() (
                 state "$msg. Actual: $(grep GRUB_CMDLINE_LINUX /etc/default/grub)" 1
             fi
         else
-            state "System: $file not found. Check skipped" 2
+            state "System: /etc/default/grub not found. Check skipped" 2
         fi
     }
 
