@@ -1,4 +1,4 @@
-Cloudera Prerequisites Checker
+# Cloudera Prerequisites Checker
 
 [![Build Status](https://travis-ci.org/cloudera-ps/prereq-checks.svg?branch=master)](https://travis-ci.org/cloudera-ps/prereq-checks)
 
