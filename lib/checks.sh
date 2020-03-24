@@ -113,6 +113,10 @@ function check_java() {
                         if [[ ${BASH_REMATCH[1]} -eq 7 ]]; then
                             state "Java: Unsupported OpenJDK: ${candidate}/bin/java" 1
                         elif [[ ${BASH_REMATCH[1]} -eq 8 ]]; then
+                            # https://bugs.openjdk.java.net/browse/JDK-8215032
+                            if [[ ${BASH_REMATCH[2]} -eq 242 ]]; then
+                                state "Servers with Kerberos enabled stop functioning when using OpenJDK 1.8u242" 2
+                            fi
                             if [[ ${BASH_REMATCH[2]} -lt 181 ]]; then
                                 state "Java: Unsupported OpenJDK: ${candidate}/bin/java" 1
                             else
