@@ -178,12 +178,12 @@ function check_os() (
         fi
     }
 
-    function check_thp() {
+    function check_thp_defrag() {
         # Older RHEL/CentOS versions use [1], while newer versions (e.g. 7.1) and
         # Ubuntu/Debian use [2]:
         #   1: /sys/kernel/mm/redhat_transparent_hugepage/defrag
         #   2: /sys/kernel/mm/transparent_hugepage/defrag.
-        # http://www.cloudera.com/content/www/en-us/documentation/enterprise/latest/topics/cdh_admin_performance.html#xd_583c10bfdbd326ba-7dae4aa6-147c30d0933--7fd5__section_hw3_sdf_jq
+        # http://www.cloudera.com/content/www/en-us/documentation/enterprise/latest/topics/cdh_admin_performance.html#cdh_performance__section_hw3_sdf_jq
         local file
         file=$(find /sys/kernel/mm/ -type d -name '*transparent_hugepage')/defrag
         if [ -f "$file" ]; then
@@ -195,6 +195,37 @@ function check_os() (
             fi
         else
             state "System: /sys/kernel/mm/*transparent_hugepage not found. Check skipped" 2
+        fi
+    }
+
+    function check_thp_enabled() {
+        # https://docs.cloudera.com/documentation/enterprise/latest/topics/cdh_admin_performance.html#cdh_performance__section_hw3_sdf_jq
+        local file
+        file=$(find /sys/kernel/mm/ -type d -name '*transparent_hugepage')/enabled
+        if [ -f "$file" ]; then
+            local msg="System: $file should be disabled"
+            if grep -F -q "[never]" "$file"; then
+                state "$msg" 0
+            else
+                state "$msg. Actual: $(awk '{print $1}' "$file" | sed -e 's/\[//' -e 's/\]//')" 1
+            fi
+        else
+            state "System: /sys/kernel/mm/*transparent_hugepage not found. Check skipped" 2
+        fi
+    }
+
+    function check_thp_grub() {
+        # If your cluster hosts are running RHEL/CentOS 7.x, modify the GRUB configuration to disable THP
+        # https://docs.cloudera.com/documentation/enterprise/latest/topics/cdh_admin_performance.html#cdh_performance__section_hw3_sdf_jq
+        if [ -f "/etc/default/grub" ]; then
+            local msg="System: /etc/default/grub should have 'transparent_hugepage=never' appended to GRUB_CMDLINE_LINUX"
+            if grep -F -q "transparent_hugepage=never" "/etc/default/grub"; then
+                state "$msg" 0
+            else
+                state "$msg. Actual: $(grep GRUB_CMDLINE_LINUX /etc/default/grub)" 1
+            fi
+        else
+            state "System: /etc/default/grub not found. Check skipped" 2
         fi
     }
 
@@ -285,7 +316,9 @@ function check_os() (
     check_swappiness
     check_overcommit_memory
     check_tuned
-    check_thp
+    check_thp_defrag
+    check_thp_enabled
+    check_thp_grub
     check_selinux
     check_time_sync
     check_32bit_packages
