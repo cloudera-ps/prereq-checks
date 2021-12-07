@@ -30,7 +30,7 @@
 # http://redsymbol.net/articles/unofficial-bash-strict-mode/
 set -u
 
-VER=1.5
+VER=1.5.1
 
 if [ "$(uname)" = 'Darwin' ]; then
     echo -e "\nThis tool runs on Linux only, not Mac OS."
@@ -1373,6 +1373,16 @@ function print_cpu_and_ram() {
     print_label "RAM" "$(awk '/^MemTotal:/ { printf "%.2f", $2/1024/1024 ; exit}' /proc/meminfo)G"
 }
 
+function print_swap() {
+   local swap
+   swap=$(free -h | awk '/^Swap:/{print $2}')
+   if [ -z "$swap" ]
+   then
+      swap="(None)"
+   fi
+   print_label "Swap" "$swap"
+}
+
 function print_disks() (
     function data_mounts() {
         while read -r source target fstype options; do
@@ -1451,14 +1461,26 @@ function print_free_space() (
         # $ df -Ph /opt
         # Filesystem      Size  Used Avail Use% Mounted on
         # /dev/sda1        99G  1.8G   92G   2% /
+        test -d "$1" || return 0
         local path="$1"
+        local data
         local free
-        free=$(df -Ph "$path" | tail -1 | awk '{print $4}')
+        local total
+        data=$(df -Ph "$path" | tail -1)
+        free=$(echo "$data" | awk '{print $4}')
+        total=$(echo "$data" | awk '{print $2}')
         pad
-        printf "%-9s %s\n" "$path" "$free"
+        printf "%-9s %s\n" "$path" "$free of $total"
     }
     echo "Free space:"
+    free_space /
+    free_space /home
     free_space /opt
+    free_space /opt/cloudera
+    free_space /tmp
+    free_space /usr
+    free_space /usr/hdp
+    free_space /var
     free_space /var/log
 )
 
@@ -1498,6 +1520,7 @@ function system_info() {
     print_fqdn
     print_os
     print_cpu_and_ram
+    print_swap
     print_disks
     print_free_space
     print_cloudera_rpms
