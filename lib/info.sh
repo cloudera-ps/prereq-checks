@@ -162,6 +162,27 @@ function print_cloudera_rpms() {
 }
 
 function print_network() {
+    echo "Networks Cards:"
+    local iface
+    local iface_name
+    local iface_status
+    local iface_speed
+    local iface_duplex
+    local iface_path="/sys/class/net"
+    for iface in $iface_path/*
+    do
+        if [ -d $iface ]
+        then
+            if cat "$iface/speed" >/dev/null 2>&1
+            then
+                iface_name=$(echo "$iface" | sed 's/^.*\/\(.*\)$/\1/')
+                iface_status=$(cat $iface/operstate)
+                iface_speed=$(cat $iface/speed)
+                iface_duplex=$(cat $iface/duplex)
+                pad; echo "$iface_name ($iface_status $iface_speed $iface_duplex)"
+            fi
+        fi
+    done
     print_label "nsswitch" "$(grep "^hosts:" /etc/nsswitch.conf | sed 's/^hosts: *//')"
     print_label "DNS server" "$(grep "^nameserver" /etc/resolv.conf | cut -d' ' -f2)"
 }
