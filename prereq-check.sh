@@ -30,7 +30,7 @@
 # http://redsymbol.net/articles/unofficial-bash-strict-mode/
 set -u
 
-VER=1.5.1
+VER=1.5.3
 
 if [ "$(uname)" = 'Darwin' ]; then
     echo -e "\nThis tool runs on Linux only, not Mac OS."
@@ -1481,6 +1481,7 @@ function print_free_space() (
     free_space /usr
     free_space /usr/hdp
     free_space /var
+    free_space /var/lib
     free_space /var/log
 )
 

@@ -140,6 +140,7 @@ function print_free_space() (
     free_space /usr
     free_space /usr/hdp
     free_space /var
+    free_space /var/lib
     free_space /var/log
 )
 
