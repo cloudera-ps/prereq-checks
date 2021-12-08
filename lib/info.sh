@@ -185,7 +185,7 @@ function print_network() {
         fi
     done
     print_label "nsswitch" "$(grep "^hosts:" /etc/nsswitch.conf | sed 's/^hosts: *//')"
-    print_label "DNS server" "$(grep "^nameserver" /etc/resolv.conf | cut -d' ' -f2)"
+    print_label "DNS server" "$(awk '/^nameserver/{printf $2 " "}' /etc/resolv.conf)"
 }
 
 function print_internet() {
