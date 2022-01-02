@@ -1683,7 +1683,7 @@ function usage() {
     echo "  -a, --addc $(tput smul)domain$(tput sgr0)"
     echo "    Run tests against Active Directory Domain Controller"
     echo
-    echo "  -p, --privilegetest $(tput smul)ldapURI$(tput sgr0) $(tput smul)binddn$(tput sgr0) $(tput smul)searchbase$(tput sgr0) $(tput smul)bind_user_password$(tput sgr0)"
+    echo "  -p, --privilegetest $(tput smul)LdapURI$(tput sgr0) $(tput smul)KDC_Manager$(tput sgr0) $(tput smul)ClouderaOU_DN$(tput sgr0) $(tput smul)KDC_Manager_Password$(tput sgr0)"
     echo "    Run tests against Active Directory delegated user for Direct to AD integration"
     echo "    http://blog.cloudera.com/blog/2014/07/new-in-cloudera-manager-5-1-direct-active-directory-integration-for-kerberos-authentication/"
     echo 
