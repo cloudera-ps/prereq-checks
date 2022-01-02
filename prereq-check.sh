@@ -592,7 +592,7 @@ function check_privs() {
     ldapsearch -x -H "${ARG_LDAPURI}" -D "${ARG_BINDDN}" -b "${ARG_SEARCHBASE}"  -L -w "${ARG_USERPSWD}" > /dev/zero 2>/dev/zero
     SRCH_RESULT=$?
     if [ $SRCH_RESULT -eq 0 ]; then
-        state "User exists" 0
+        state "KDC Account Manager user exists" 0
         cat > /tmp/prereq-check.ldif <<EOFILE
 dn: CN=Cloudera User,${ARG_SEARCHBASE}
 objectClass: top
@@ -601,8 +601,8 @@ objectClass: organizationalPerson
 objectClass: user
 EOFILE
         # NOTE: Heredoc requires the above spacing/format or it won't work.
-
         ldapadd -x -H "${ARG_LDAPURI}" -a -D "${ARG_BINDDN}" -f /tmp/prereq-check.ldif -w "${ARG_USERPSWD}" > /dev/zero 2>/dev/zero
+
         ADD_RESULT=$?
         if [ $ADD_RESULT -eq 0 ]; then
             state "Has delegated privileges to add a new user on the OU" 0
@@ -619,14 +619,14 @@ EOFILE
         else
             state "Not able to add user" 1
         fi
+    elif [ $SRCH_RESULT -eq 32 ]; then
+        state "Unable to find OU" 1
     elif [ $SRCH_RESULT -eq 49 ]; then
-        state "Invalid credentials - ldap_bind(49)" 1
-    elif [ $SRCH_RESULT -eq 10 ]; then
-        state "Possible invalid BaseDN - ldap_bind(10)" 1
+        state "Invalid KDC Account Manager credentials" 1
     elif [ $SRCH_RESULT -eq 255 ]; then
         state "Not able to find the LDAP server specified" 1
     elif [ $SRCH_RESULT -eq 34 ]; then
-        state "Invalid DN syntax (34)" 1
+        state "Invalid OU DN" 1
     else
         state -e "Unrecognized error occured. Not able to connect to AD using\n\tLDAPURI: ${ARG_LDAPURI}\n\tBINDDN: ${ARG_BINDDN}\n\tSEARCHBASE: ${ARG_SEARCHBASE}\n\tand provided password" 1
     fi
