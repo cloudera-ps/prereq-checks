@@ -588,36 +588,44 @@ function check_addc() {
 }
 
 function check_privs() {
-    print_header "Prerequisite checks: Direct to AD integration:"
+    print_header "AD privilege checks"
     ldapsearch -x -H "${ARG_LDAPURI}" -D "${ARG_BINDDN}" -b "${ARG_SEARCHBASE}"  -L -w "${ARG_USERPSWD}" > /dev/zero 2>/dev/zero
     SRCH_RESULT=$?
     if [ $SRCH_RESULT -eq 0 ]; then
         state "KDC Account Manager user exists" 0
-        cat > /tmp/prereq-check.ldif <<EOFILE
-dn: CN=Cloudera User,${ARG_SEARCHBASE}
+
+	RANDOM_CN=prereqchk01
+
+	ldapmodify -x -H "${ARG_LDAPURI}" -D "${ARG_BINDDN}" -w "${ARG_USERPSWD}" > /dev/zero 2>/dev/zero <<-%EOF
+dn: CN=${RANDOM_CN},${ARG_SEARCHBASE}
+changetype: add
 objectClass: top
 objectClass: person
 objectClass: organizationalPerson
 objectClass: user
-EOFILE
-        # NOTE: Heredoc requires the above spacing/format or it won't work.
-        ldapadd -x -H "${ARG_LDAPURI}" -a -D "${ARG_BINDDN}" -f /tmp/prereq-check.ldif -w "${ARG_USERPSWD}" > /dev/zero 2>/dev/zero
+sAMAccountName: ${RANDOM_CN}
+%EOF
 
         ADD_RESULT=$?
         if [ $ADD_RESULT -eq 0 ]; then
-            state "Has delegated privileges to add a new user on the OU" 0
-            ldapdelete -H "${ARG_LDAPURI}" -D "${ARG_BINDDN}" "CN=Cloudera User,${ARG_SEARCHBASE}" -w "${ARG_USERPSWD}"
+            state "Create a new user principal in the OU" 0
+            ldapdelete -H "${ARG_LDAPURI}" -D "${ARG_BINDDN}" "CN=${RANDOM_CN},${ARG_SEARCHBASE}" -w "${ARG_USERPSWD}" > /dev/zero 2>/dev/zero
             DEL_RESULT=$?
             if [ $DEL_RESULT -eq 0 ]; then
-                state "Has delegated privileges to delete a user on the OU" 0
-                state "Sufficient privileges available to perform a direct to AD integration" 0
+                state "Delete a user principal in the OU" 0
+
+                # continue on to perform Active Directory SPN uniqueness check impact
+                check_spn_uniqueness
+
+	    else
+		state "Delete a user principal in the OU" 1
             fi
         elif [ $ADD_RESULT -eq 50 ]; then
-            state "ldap_add: Insufficient access (50)" 1
+            state "Create a new user principal in the OU (reason: Insufficient access)" 1
         elif [ $ADD_RESULT -eq 68 ]; then
-            state "ldap_add: Already exists (68)" 1
+            state "Create a new user principal in the OU (reason: Already exists)" 1
         else
-            state "Not able to add user" 1
+            state "Create a new user principal in the OU" 1
         fi
     elif [ $SRCH_RESULT -eq 32 ]; then
         state "Unable to find OU" 1
@@ -630,6 +638,50 @@ EOFILE
     else
         state -e "Unrecognized error occured. Not able to connect to AD using\n\tLDAPURI: ${ARG_LDAPURI}\n\tBINDDN: ${ARG_BINDDN}\n\tSEARCHBASE: ${ARG_SEARCHBASE}\n\tand provided password" 1
     fi
+}
+
+
+########################################################################################################
+#### SPN uniqueness check - test if Cloudera will be affected by MS patch (KB5008382) for CVE-2021-42282
+########################################################################################################
+
+function check_spn_uniqueness() {
+
+    RANDOM_HOSTNAME="$(tr -dc A-Za-z0-9 </dev/urandom | head -c 8 ; echo '')"
+    RANDOM_CN1=prereqchk02
+    ldapmodify -x -H "${ARG_LDAPURI}" -D "${ARG_BINDDN}" -w "${ARG_USERPSWD}" > /dev/zero 2>/dev/zero <<-%EOF
+dn: CN=${RANDOM_CN1},${ARG_SEARCHBASE}
+changetype: add
+objectClass: top
+objectClass: person
+objectClass: organizationalPerson
+objectClass: user
+sAMAccountName: ${RANDOM_CN1}
+servicePrincipalName: host/${RANDOM_HOSTNAME}@test.com
+%EOF
+
+    RANDOM_CN2=prereqchk03
+    ldapmodify -x -H "${ARG_LDAPURI}" -D "${ARG_BINDDN}" -w "${ARG_USERPSWD}" > /dev/zero 2>/dev/zero <<-%EOF
+dn: CN=${RANDOM_CN2},${ARG_SEARCHBASE}
+changetype: add
+objectClass: top
+objectClass: person
+objectClass: organizationalPerson
+objectClass: user
+sAMAccountName: ${RANDOM_CN2}
+servicePrincipalName: HTTP/${RANDOM_HOSTNAME}@test.com
+%EOF
+
+    ADD_RESULT=$?
+    if [ $ADD_RESULT -eq 0 ]; then
+      # creation of HTTP SPN succeeded
+      state "SPN alias uniqueness check impact (MS KB5008382 patch for CVE-2021-42282)" 0
+    else
+      state "SPN alias uniqueness check impact (MS KB5008382 patch for CVE-2021-42282)" 1
+    fi
+
+    ldapdelete -H "${ARG_LDAPURI}" -D "${ARG_BINDDN}" "CN=${RANDOM_CN1},${ARG_SEARCHBASE}" -w "${ARG_USERPSWD}" > /dev/zero 2>/dev/zero
+    ldapdelete -H "${ARG_LDAPURI}" -D "${ARG_BINDDN}" "CN=${RANDOM_CN2},${ARG_SEARCHBASE}" -w "${ARG_USERPSWD}" > /dev/zero 2>/dev/zero
 }
 
 # cdsw-checks.sh ------------------------------------------------
