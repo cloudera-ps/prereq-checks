@@ -589,6 +589,10 @@ function check_addc() {
 
 function check_privs() {
     print_header "AD privilege checks"
+    
+    # disable cert verification if using ldaps
+    export LDAPTLS_REQCERT=never
+    
     ldapsearch -x -H "${ARG_LDAPURI}" -D "${ARG_BINDDN}" -b "${ARG_SEARCHBASE}"  -L -w "${ARG_USERPSWD}" > /dev/zero 2>/dev/zero
     SRCH_RESULT=$?
     if [ $SRCH_RESULT -eq 0 ]; then
