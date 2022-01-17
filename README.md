@@ -127,7 +127,7 @@ OPTIONS:
   -a, --addc domain
     Run tests against Active Directory Domain Controller
 
-  -p, --privilegetest ldapURI binddn searchbase bind_user_password
+  -p, --privilegetest LdapURI KDC_Manager ClouderaOU_DN KDC_Manager_Password
     Run tests against Active Directory delegated user for Direct to AD integration
     http://blog.cloudera.com/blog/2014/07/new-in-cloudera-manager-5-1-direct-active-directory-integration-for-kerberos-authentication/
 
