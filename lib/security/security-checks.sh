@@ -46,16 +46,18 @@ function check_privs() {
     print_header "AD privilege checks"
     
     ### disable cert verification if using ldaps
-    export LDAPTLS_REQCERT=never
+    #export LDAPTLS_REQCERT=never
     
-    ldapsearch -x -H "${ARG_LDAPURI}" -D "${ARG_BINDDN}" -b "${ARG_SEARCHBASE}"  -L -w "${ARG_USERPSWD}" > /dev/zero 2>/dev/zero
+    STDERR=$(ldapsearch -x -H "${ARG_LDAPURI}" -D "${ARG_BINDDN}" -b "${ARG_SEARCHBASE}"  -L -w "${ARG_USERPSWD}" 2>&1 >/dev/zero)
     SRCH_RESULT=$?
+    SRCH_RESULT=-1
+
     if [ $SRCH_RESULT -eq 0 ]; then
         state "KDC Account Manager user exists" 0
 
 	RANDOM_CN=prereqchk01
 
-	ldapmodify -x -H "${ARG_LDAPURI}" -D "${ARG_BINDDN}" -w "${ARG_USERPSWD}" > /dev/zero 2>/dev/zero <<-%EOF
+	ldapmodify -x -H "${ARG_LDAPURI}" -D "${ARG_BINDDN}" -w "${ARG_USERPSWD}" > /dev/zero 2> /dev/zero <<-%EOF
 dn: CN=${RANDOM_CN},${ARG_SEARCHBASE}
 changetype: add
 objectClass: top
@@ -84,7 +86,7 @@ sAMAccountName: ${RANDOM_CN}
         elif [ $ADD_RESULT -eq 68 ]; then
             state "Create a new user principal in the OU (reason: Already exists)" 1
         else
-            state "Create a new user principal in the OU" 1
+            state "Unexpected error creating a new user principal in the OU. LDAP error code = ${ADD_RESULT}" 1
         fi
     elif [ $SRCH_RESULT -eq 32 ]; then
         state "Unable to find OU" 1
@@ -95,7 +97,7 @@ sAMAccountName: ${RANDOM_CN}
     elif [ $SRCH_RESULT -eq 34 ]; then
         state "Invalid OU DN" 1
     else
-        state -e "Unrecognized error occured. Not able to connect to AD using\n\tLDAPURI: ${ARG_LDAPURI}\n\tBINDDN: ${ARG_BINDDN}\n\tSEARCHBASE: ${ARG_SEARCHBASE}\n\tand provided password" 1
+        state "Unexpected error contacting domain controller. LDAP error code = $SRCH_RESULT, LDAP error message: ${STDERR}" 1
     fi
 }
 
@@ -135,8 +137,10 @@ servicePrincipalName: HTTP/${RANDOM_HOSTNAME}@test.com
     if [ $ADD_RESULT -eq 0 ]; then
       # creation of HTTP SPN succeeded
       state "SPN alias uniqueness check impact (MS KB5008382 patch for CVE-2021-42282)" 0
-    else
+    elif [ $ADD_RESULT -eq 19 ]; then
       state "SPN alias uniqueness check impact (MS KB5008382 patch for CVE-2021-42282)" 1
+    else
+      state "Unexpected error performing SPN alias uniqueness check. LDAP error code = $ADD_RESULT" 1
     fi
 
     ldapdelete -H "${ARG_LDAPURI}" -D "${ARG_BINDDN}" "CN=${RANDOM_CN1},${ARG_SEARCHBASE}" -w "${ARG_USERPSWD}" > /dev/zero 2>/dev/zero
