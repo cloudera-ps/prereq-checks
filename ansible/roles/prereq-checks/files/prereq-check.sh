@@ -655,6 +655,15 @@ function check_spn_uniqueness() {
     HOSTNAME=$(hostname -f)
     RANDOM_CN=prereqchk03
 
+    SEARCHBASE=$(echo ${ARG_SEARCHBASE} | grep -o 'dc=.*')
+
+    ldapsearch -x -H "${ARG_LDAPURI}" -D "${ARG_BINDDN}" -w "${ARG_USERPSWD}" -b "${SEARCHBASE}" "servicePrincipalName=HTTP/${HOSTNAME}" | grep "^cn:" 2>&1 > /dev/null
+    SRCH_RESULT=$?
+    if [[ $SRCH_RESULT -eq 0 ]]; then
+      state "Error performing SPN alias uniqueness check. HTTP SPN already exists." 1
+      return
+    fi
+
     ldapmodify -x -H "${ARG_LDAPURI}" -D "${ARG_BINDDN}" -w "${ARG_USERPSWD}" > /dev/zero 2>/dev/zero <<-%EOF
 dn: CN=${RANDOM_CN},${ARG_SEARCHBASE}
 changetype: add
