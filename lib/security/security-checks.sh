@@ -50,7 +50,6 @@ function check_privs() {
     
     STDERR=$(ldapsearch -x -H "${ARG_LDAPURI}" -D "${ARG_BINDDN}" -b "${ARG_SEARCHBASE}"  -L -w "${ARG_USERPSWD}" 2>&1 >/dev/zero)
     SRCH_RESULT=$?
-    SRCH_RESULT=-1
 
     if [ $SRCH_RESULT -eq 0 ]; then
         state "KDC Account Manager user exists" 0
@@ -108,29 +107,18 @@ sAMAccountName: ${RANDOM_CN}
 
 function check_spn_uniqueness() {
 
-    RANDOM_HOSTNAME="$(tr -dc A-Za-z0-9 </dev/urandom | head -c 8 ; echo '')"
-    RANDOM_CN1=prereqchk02
-    ldapmodify -x -H "${ARG_LDAPURI}" -D "${ARG_BINDDN}" -w "${ARG_USERPSWD}" > /dev/zero 2>/dev/zero <<-%EOF
-dn: CN=${RANDOM_CN1},${ARG_SEARCHBASE}
-changetype: add
-objectClass: top
-objectClass: person
-objectClass: organizationalPerson
-objectClass: user
-sAMAccountName: ${RANDOM_CN1}
-servicePrincipalName: host/${RANDOM_HOSTNAME}@test.com
-%EOF
+    HOSTNAME=$(hostname -f)
+    RANDOM_CN=prereqchk03
 
-    RANDOM_CN2=prereqchk03
     ldapmodify -x -H "${ARG_LDAPURI}" -D "${ARG_BINDDN}" -w "${ARG_USERPSWD}" > /dev/zero 2>/dev/zero <<-%EOF
-dn: CN=${RANDOM_CN2},${ARG_SEARCHBASE}
+dn: CN=${RANDOM_CN},${ARG_SEARCHBASE}
 changetype: add
 objectClass: top
 objectClass: person
 objectClass: organizationalPerson
 objectClass: user
-sAMAccountName: ${RANDOM_CN2}
-servicePrincipalName: HTTP/${RANDOM_HOSTNAME}@test.com
+sAMAccountName: ${RANDOM_CN}
+servicePrincipalName: HTTP/${HOSTNAME}
 %EOF
 
     ADD_RESULT=$?
@@ -143,6 +131,5 @@ servicePrincipalName: HTTP/${RANDOM_HOSTNAME}@test.com
       state "Unexpected error performing SPN alias uniqueness check. LDAP error code = $ADD_RESULT" 1
     fi
 
-    ldapdelete -H "${ARG_LDAPURI}" -D "${ARG_BINDDN}" "CN=${RANDOM_CN1},${ARG_SEARCHBASE}" -w "${ARG_USERPSWD}" > /dev/zero 2>/dev/zero
-    ldapdelete -H "${ARG_LDAPURI}" -D "${ARG_BINDDN}" "CN=${RANDOM_CN2},${ARG_SEARCHBASE}" -w "${ARG_USERPSWD}" > /dev/zero 2>/dev/zero
+    ldapdelete -H "${ARG_LDAPURI}" -D "${ARG_BINDDN}" "CN=${RANDOM_CN},${ARG_SEARCHBASE}" -w "${ARG_USERPSWD}" > /dev/zero 2>/dev/zero
 }
