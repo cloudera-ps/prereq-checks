@@ -591,7 +591,7 @@ function check_privs() {
     print_header "AD privilege checks"
     
     ### disable cert verification if using ldaps
-    #export LDAPTLS_REQCERT=never
+    export LDAPTLS_REQCERT=never
     
     STDERR=$(ldapsearch -x -H "${ARG_LDAPURI}" -D "${ARG_BINDDN}" -b "${ARG_SEARCHBASE}"  -L -w "${ARG_USERPSWD}" 2>&1 >/dev/zero)
     SRCH_RESULT=$?
@@ -655,7 +655,7 @@ function check_spn_uniqueness() {
     HOSTNAME=$(hostname -f)
     RANDOM_CN=prereqchk03
 
-    SEARCHBASE=$(echo ${ARG_SEARCHBASE} | grep -o 'dc=.*')
+    SEARCHBASE=$(echo ${ARG_SEARCHBASE} | grep -io 'dc=.*')
 
     ldapsearch -x -H "${ARG_LDAPURI}" -D "${ARG_BINDDN}" -w "${ARG_USERPSWD}" -b "${SEARCHBASE}" "servicePrincipalName=HTTP/${HOSTNAME}" | grep "^cn:" 2>&1 > /dev/null
     SRCH_RESULT=$?
