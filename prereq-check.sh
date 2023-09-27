@@ -1706,6 +1706,22 @@ function is_centos_rhel_7() {
     fi
 }
 
+function is_centos_rhel_8() {
+    if [ -f /etc/redhat-release ] && grep -q " 8." /etc/redhat-release; then
+        return 0;
+    else
+        return 1;
+    fi
+}
+
+function is_centos_rhel_9() {
+    if [ -f /etc/redhat-release ] && grep -q " 9." /etc/redhat-release; then
+        return 0;
+    else
+        return 1;
+    fi
+}
+
 function reset_service_state() {
     SERVICE_STATE['installed']=false
     SERVICE_STATE['running']=false
@@ -1724,7 +1740,7 @@ function get_service_state() {
 
     reset_service_state
 
-    if is_centos_rhel_7; then
+    if is_centos_rhel_7 || is_centos_rhel_8 || is_centos_rhel_9; then
         local sub_state
         sub_state=$(systemctl show "$service_name" --type=service --property=SubState 2</dev/null | sed -e 's/^.*=//')
         case $sub_state in
