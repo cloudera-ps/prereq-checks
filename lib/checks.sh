@@ -101,11 +101,29 @@ function check_java() {
         "${OPENJAVA6_HOME_CANDIDATES[@]}"
     )
 
-    # Find and verify Java
-    # https://www.cloudera.com/documentation/enterprise/release-notes/topics/rn_consolidated_pcm.html#pcm_jdk
-    # JDK 8 minimum required version is JDK 1.8u31
-    # excludes JDK 1.8u40, JDK 1.8u45, and JDK 1.8u60
-    # OpenJDK minimum required version is 1.8u181
+    function get_jdk_type() {
+       java=$1
+       JDK_TYPE=$($java -version 2>&1 | head -2 | tail -1 | awk '{print $1}') 
+  
+       case $JDK_TYPE in
+           Java\(TM\) )
+               echo "Oracle";;
+           OpenJDK )
+               if [[ -z $($java -version 2>&1 | head -2 | tail -1 |grep Zulu) ]]; then
+                   echo "OpenJDK"
+               else
+                   echo "Azul"
+               fi
+               ;;
+           * )
+               echo "Unknown";;
+        esac
+    }
+
+    # https://docs.cloudera.com/cdp-private-cloud-base/7.1.9/installation/topics/cdpdc-java-requirements.html
+    # JDK 8 minimum required version is 1.8u181
+    # OpenJDK 8 minimum required version is 1.8u232
+    # Azul JDK 8 minimum required version is 8.56.0.21
     java_found=false
     for candidate_regex in "${JAVA_HOME_CANDIDATES[@]}"; do
         # shellcheck disable=SC2045,SC2086
@@ -113,94 +131,66 @@ function check_java() {
             if [ -x "$candidate/bin/java" ]; then
                 java_found=true
                 JDK_VERSION=$($candidate/bin/java -version 2>&1 | head -1 | awk '{print $3}' | tr -d '"')
-                #JDK_VERSION_REGEX='1\.([0-9])\.0_([0-9][0-9]*)|(11)\.([0-9]*)\.([0-9]*)'
                 JDK_VERSION_REGEX='(1|11)\.([0-9])\.([0-9_]*)'
                 JDK_8_MINOR_VERSION_REGEX='1\.8\.0_([0-9]*)'
-                JDK_TYPE=$($candidate/bin/java -version 2>&1 | head -2 | tail -1)
-                if [[ $JDK_TYPE = "Java(TM)"* ]]; then
-                     # Oracle JDK
-                    if [[ $JDK_VERSION =~ $JDK_VERSION_REGEX ]]; then
-                        if [[ ${BASH_REMATCH[1]} -eq 1 ]]; then
-                            if [[ ${BASH_REMATCH[2]} -eq 8 ]]; then
-                                # Oracle JDK 1.8.0_XXX
+                JDK_TYPE=$(get_jdk_type "$candidate/bin/java")
+                support=true
+
+                if [[ $JDK_VERSION =~ $JDK_VERSION_REGEX ]]; then
+                    if [[ ${BASH_REMATCH[1]} -eq 1 ]]; then
+                        if [[ ${BASH_REMATCH[2]} -eq 8 ]]; then
+                            if [[ $JDK_TYPE == "Azul" ]]; then
+                                # Azul JDK 1.8.0_XXX
+                                # Azul JDK uses a different build versioning convention
+                                AZUL_BUILD=$($candidate/bin/java -version 2>&1 | head -2 | tail -1 | awk '{print $5}' | cut -d'-' -f1)
+                                AZUL_BUILD_REGEX='8\.([0-9]*)\.([0-9]*)\.([0-9]*)'
+                                if [[ $AZUL_BUILD =~ $AZUL_BUILD_REGEX ]]; then
+                                    # Check if Azul build is lower than 8.56.0.21 which is the minimum required version
+                                    if [[ ${BASH_REMATCH[1]} -lt 56 ]]; then
+                                        support=false
+                                    elif [[ ${BASH_REMATCH[1]} -eq 56 ]] && [[ ${BASH_REMATCH[3]} -lt 21 ]]; then
+                                        support=false
+                                    else
+                                        support=true
+                                    fi
+                                else
+                                    support=false
+                                fi
+                            else
+                                # Oracle or OpenJDK 1.8.0_XXX
                                 if [[ $JDK_VERSION =~ $JDK_8_MINOR_VERSION_REGEX ]]; then
-                                    if [[ ${BASH_REMATCH[1]} -lt 181 ]]; then
-                                        state "Java: Unsupported Oracle Java $JDK_VERSION: ${candidate}/bin/java" 1
+                                    if [[ $JDK_TYPE == "Oracle" ]] && [[ ${BASH_REMATCH[1]} -lt 181 ]]; then
+                                        support=false
+                                    elif [[ $JDK_TYPE == "OpenJDK" ]] && [[ ${BASH_REMATCH[1]} -lt 232 ]]; then
+                                        support=false
                                     else
-                                        state "Java: Supported Oracle Java $JDK_VERSION: ${candidate}/bin/java" 0
+                                        support=true
                                     fi
                                 else
-                                    state "Java: Unsupported Oracle Java $JDK_VERSION: ${candidate}/bin/java" 1
+                                    support=false
                                 fi
-                            else
-                                state "Java: Unsupported Oracle Java $JDK_VERSION: ${candidate}/bin/java" 1
                             fi
-                        elif [[ ${BASH_REMATCH[1]} -eq 11 ]]; then
-                            # Oracle JDK 11
-                            state "Java: Supported Oracle Java $JDK_VERSION: ${candidate}/bin/java" 0
                         else
-                            state "Java: Unsupported Oracle Java $JDK_VERSION: ${candidate}/bin/java" 1
+                             support=false
+                        fi
+                    elif [[ ${BASH_REMATCH[1]} -eq 11 ]]; then
+                        # Oracle, OpenJDK and Azul Java 11 are all supported
+                        if [[ $JDK_TYPE != "Unknown" ]]; then
+                            support=true
+                        else
+                            support=false
                         fi
                     else
-                        state "Java: Unsupported Oracle Java $JDK_VERSION: ${candidate}/bin/java" 1
+                        support=false
                     fi
-                elif [[ $JDK_TYPE = "OpenJDK"* ]]; then
-                    if [[ $JDK_TYPE =~ "Zulu" ]]; then
-                        if [[ $JDK_VERSION =~ $JDK_VERSION_REGEX ]]; then
-                            if [[ ${BASH_REMATCH[1]} -eq 1 ]]; then
-                                if [[ ${BASH_REMATCH[2]} -eq 8 ]]; then
-                                    # Azul JDK 1.8.0_XXX
-                                    AZUL_BUILD=$($candidate/bin/java -version 2>&1 | head -2 | tail -1 | awk '{print $5}' | cut -d'-' -f1)
-                                    AZUL_BUILD_REGEX='8\.([0-9]*)\.([0-9]*)\.([0-9]*)'
-                                    if [[ $AZUL_BUILD =~ $AZUL_BUILD_REGEX ]]; then
-                                        # Check if build is lower than 8.56.0.21 which is the minimum required version
-                                        if [[ ${BASH_REMATCH[1]} -lt 56 ]]; then
-                                            state "Java: Unsupported Azul OpenJDK $AZUL_BUILD: ${candidate}/bin/java" 1
-                                        elif [[ ${BASH_REMATCH[1]} -eq 56 ]] && [[ ${BASH_REMATCH[3]} -lt 21 ]]; then
-                                            state "Java: Unsupported Azul OpenJDK $AZUL_BUILD: ${candidate}/bin/java" 1
-                                        else
-                                            state "Java: Supported Azul OpenJDK $AZUL_BUILD: ${candidate}/bin/java" 0
-                                        fi
-                                    else
-                                        state "Java: Unsupported Azul OpenJDK $AZUL_BUILD: ${candidate}/bin/java" 1
-                                    fi
-                                else
-                                    state "Java: Unsupported Azul OpenJDK $AZUL_BUILD: ${candidate}/bin/java" 1
-                                fi
-                            elif [[ ${BASH_REMATCH[1]} -eq 11 ]]; then
-                                state "Java: Supported Azul OpenJDK $JDK_VERSION: ${candidate}/bin/java" 0
-                            else
-                                state "Java: Unsupported Azul OpenJDK $JDK_VERSION: ${candidate}/bin/java" 1
-                            fi
-                        fi
+
+                    if [[ $support == true ]]; then
+                        state "Java: Supported $JDK_TYPE Java $JDK_VERSION: ${candidate}/bin/java" 0
                     else
-                        if [[ $JDK_VERSION =~ $JDK_VERSION_REGEX ]]; then
-                            if [[ ${BASH_REMATCH[1]} -eq 1 ]]; then
-                                if [[ ${BASH_REMATCH[2]} -eq 8 ]]; then
-                                    # OpenJDK 1.8.0_XXX
-                                    if [[ $JDK_VERSION =~ $JDK_8_MINOR_VERSION_REGEX ]]; then
-                                        if [[ ${BASH_REMATCH[1]} -lt 232 ]]; then
-                                            state "Java: Unsupported OpenJDK $JDK_VERSION: ${candidate}/bin/java" 1
-                                        else
-                                            state "Java: Supported OpenJDK $JDK_VERSION: ${candidate}/bin/java" 0
-                                        fi
-                                    else
-                                        state "Java: Unsupported OpenJDK $JDK_VERSION: ${candidate}/bin/java" 1
-                                    fi
-                                else
-                                    state "Java: Unsupported OpenJDK $JDK_VERSION: ${candidate}/bin/java" 1
-                                fi
-                            elif [[ ${BASH_REMATCH[1]} -eq 11 ]]; then
-                                state "Java: Supported OpenJDK $JDK_VERSION: ${candidate}/bin/java" 0
-                            else
-                                state "Java: Unsupported OpenJDK $JDK_VERSION: ${candidate}/bin/java" 1
-                            fi
-                        else
-                            state "Java: Unsupported OpenJDK $JDK_VERSION: ${candidate}/bin/java" 1
-                        fi
+                        state "Java: Unsupported $JDK_TYPE Java $JDK_VERSION: ${candidate}/bin/java" 1
                     fi
                 else
-                    state "Java: Unsupported Unknown: ${candidate}/bin/java" 1
+                    state "Java: Unsupported $JDK_TYPE Java $JDK_VERSION: ${candidate}/bin/java" 1
                 fi
             fi
         done
